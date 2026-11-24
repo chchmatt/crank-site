@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex">
+<title>Doodle Poker build</title>
+<style>
+:root{--ground:#1c1b29;--surface:#25243a;--border:#3a3957;--text:#f4efe2;--muted:#a9a5bf;--accent:#ff5a36;--amber:#f5c05a;--green:#5fd39a;--chip:#2e2d46;--warm:#33211f;--warm-track:#5a3a36;
+--card-h:144px;--merge-h:108px;--gutter:16px}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+body{margin:0;background:var(--ground);color:var(--text);font-family:Inter,"Segoe UI",system-ui,-apple-system,Roboto,sans-serif;font-size:15px;line-height:1.4}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+button:disabled{cursor:not-allowed}
+.mono{font-family:"JetBrains Mono",ui-monospace,"Cascadia Mono",Consolas,monospace}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+.wrap{max-width:1160px;margin:0 auto;padding:0 var(--gutter)}
+[hidden]{display:none!important}
+
+/* header */
+header{border-bottom:1px solid var(--border);padding:16px 0}
+header .wrap{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.mark{flex:none;width:36px;height:36px;display:block}
+/* the crank turns (one turn in 4 s) only while a runner is building and the data is under 2 minutes old; the page sets .spin. Nothing else on the page turns. */
+.mark .arm{transform-origin:100px 100px;transform-box:view-box}
+.mark.spin .arm{animation:crank-turn 4s linear infinite}
+@keyframes crank-turn{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.mark.spin .arm{animation:none}}
+.who{flex:1;min-width:180px}
+.who h1{margin:0;font-size:17px;font-weight:600;overflow-wrap:anywhere}
+.ctl{font-size:13px;color:var(--muted)}
+.ctl .dot{display:inline-block;width:1.1em}
+.ctl.ok .dot{color:var(--green)}
+.ctl.warn .dot{color:var(--amber)}
+#msg{min-height:18px;font-size:13px;color:var(--amber)}
+#hold{flex:none;min-height:44px;min-width:44px;padding:0 16px;background:transparent;color:var(--text);border:1px solid var(--border);border-radius:10px;font-weight:500;font-size:14px}
+#hold[aria-pressed="true"]{background:var(--warm);border-color:var(--accent)}
+#hold:disabled{color:var(--muted);border-style:dashed}
+#holdwhy{font-size:12px;color:var(--muted)}
+#holdwhy:empty{display:none}
+
+/* runners */
+.sec{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:14px 0 8px}
+.sec h2{margin:0;font-size:15px;font-weight:600}
+.sec span{font-size:13px;color:var(--muted)}
+#cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+/* ONE size for every card, whatever its state: no state class below changes height, padding or width, so nothing jumps */
+.card{height:var(--card-h);padding:12px;border-radius:12px;display:flex;flex-direction:column;overflow:hidden;background:var(--surface);border:1px solid var(--border)}
+.card .nm{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .st{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .jb{margin-top:6px;font-size:12px;color:var(--muted);line-height:1.3;min-height:16px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.card .tt{font-size:13px;line-height:1.3;min-height:34px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.track{margin-top:auto;height:6px;flex:none}
+.bar{height:6px;width:0}
+.card.building{border-color:var(--accent)}
+.card.building .st{color:var(--accent)}
+.card.building .track{border-radius:3px;background:var(--border)}
+.card.building .bar{border-radius:3px;background:var(--accent)}
+.card.owner{border-color:var(--amber)}
+.card.owner .st{color:var(--amber)}
+.card.waiting{background:transparent;border:1px dashed var(--muted)}
+.card.waiting .st{color:var(--muted)}
+.card.paused{background:transparent}
+.card.paused .st{color:var(--muted)}
+.card.paused .nm,.card.paused .tt{color:var(--muted)}
+.card.merge{grid-column:1/-1;height:var(--merge-h);background:transparent;border:1px dashed var(--border)}
+.card.merge .st{font-weight:500;color:var(--muted)}
+.card.merge .tt{min-height:0;margin-top:4px;-webkit-line-clamp:2;color:var(--muted)}
+.card.merge.merging{background:var(--warm);border:1px solid var(--accent)}
+.card.merge.merging .st{color:var(--accent);font-weight:600}
+.card.merge.merging .tt{color:var(--text)}
+.card.merge.merging .track{border-radius:3px;background:var(--warm-track)}
+/* merging has no percent, so the bar is a slow diagonal stripe (it moves a little over 3 s); idle and held show no bar at all. With reduced motion the stripe stays, and does not move. */
+.card.merge.merging .bar{border-radius:3px;width:100%;background:repeating-linear-gradient(135deg,var(--accent) 0 8px,transparent 8px 16px);background-size:22.63px 22.63px;animation:merge-stripe 3s linear infinite}
+@keyframes merge-stripe{to{background-position:22.63px 0}}
+@media (prefers-reduced-motion:reduce){.card.merge.merging .bar{animation:none}}
+.card.merge.held{border:1px solid var(--amber);background:transparent}
+.card.merge.held .st{color:var(--amber);font-weight:600}
+.none{grid-column:1/-1;font-size:13px;color:var(--muted);padding:8px 0}
+.none:empty{display:none}
+
+/* the needs-the-owner strip: always this tall, whether or not anything is in it */
+#strip{margin-top:10px;height:52px;border:1px solid var(--border);border-radius:10px;padding:0 12px;display:flex;gap:10px;align-items:center;color:var(--muted)}
+#strip.on{border-color:var(--amber);color:var(--text)}
+#strip svg{flex:none;stroke:currentColor}
+#strip.on svg{stroke:var(--amber)}
+#striptext{flex:1;min-width:0;font-size:14px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* tabs and chips */
+nav.tabs{margin-top:18px;display:flex;flex-wrap:nowrap;overflow-x:auto;border-bottom:1px solid var(--border);gap:4px;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar,#chips::-webkit-scrollbar{display:none}
+.tab{flex:none;min-height:48px;padding:0 12px;background:transparent;border:0;border-bottom:2px solid transparent;color:var(--muted);font-size:15px;font-weight:500}
+.tab[aria-selected="true"]{border-bottom-color:var(--accent);color:var(--text);font-weight:600}
+.tab .n,.chip .n{font-family:"JetBrains Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:12px;margin-left:4px}
+.tab[aria-selected="true"] .n{color:var(--accent)}
+#chips{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:8px;padding:12px 0;min-height:68px;scrollbar-width:none}
+.chip{flex:none;min-height:44px;padding:0 14px;border-radius:999px;font-size:14px;font-weight:500;white-space:nowrap;display:flex;align-items:center;gap:8px;border:1px solid var(--border);background:transparent;color:var(--text)}
+.chip .n{margin:0;padding:1px 7px;border-radius:999px;background:var(--chip);color:var(--text)}
+.chip[aria-pressed="true"]{background:var(--text);color:var(--ground);border-color:var(--text)}
+.chip[aria-pressed="true"] .n{background:var(--ground);color:var(--text)}
+.chip .sym{font-size:12px}
+.chip .sym.building{color:var(--accent)}.chip .sym.owner{color:var(--amber)}.chip .sym.waiting,.chip .sym.paused{color:var(--muted)}
+.chip[aria-pressed="true"] .sym{color:#4a4763}
+.chip[aria-pressed="true"] .sym.building{color:#c2381a}.chip[aria-pressed="true"] .sym.owner{color:#8a5a00}
+
+/* job rows: a list on a phone, a table on a desktop (one table, laid out two ways) */
+table{width:100%;border-collapse:collapse}
+thead{display:none}
+tbody,tr,td{display:block}
+tr{display:flex;flex-wrap:wrap;align-items:baseline;padding:12px 0;border-top:1px solid var(--border);column-gap:0}
+td{padding:0}
+td.num{flex:0 0 3.8em;font-family:"JetBrains Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:13px;color:var(--muted)}
+td.title{flex:0 0 calc(100% - 3.8em);font-weight:500;overflow-wrap:anywhere}
+td.state,td.topic,td.note{flex:0 0 auto;margin:6px 10px 0 0;font-size:13px;color:var(--muted)}
+td.state{padding-left:0}
+td.topic:empty,td.note:empty{display:none}
+.s-building{color:var(--accent);font-weight:600}.s-owner{color:var(--amber);font-weight:600}.s-failed{color:var(--amber);font-weight:600}
+.empty{padding:28px 0;font-size:14px;color:var(--muted)}
+.more{min-height:44px;margin:12px 0;padding:0 16px;background:transparent;color:var(--text);border:1px solid var(--border);border-radius:10px;font-size:14px}
+.foot{margin:20px 0 28px;font-size:12px;color:var(--muted)}
+#failed{margin:12px 0 0;font-size:13px;color:var(--amber)}
+#failed:empty{display:none}
+
+@media (min-width:760px){
+  :root{--card-h:156px;--merge-h:156px;--gutter:24px}
+  header .wrap{gap:14px}
+  .mark{width:40px;height:40px}
+  .who h1{font-size:18px}
+  #cards{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .card{padding:14px}
+  .card .nm,.card .st{font-size:14px}
+  .card .jb{margin-top:8px;font-size:13px}
+  .card .tt{font-size:14px;min-height:36px}
+  .card.merge{grid-column:auto}
+  .card.merge .tt{margin-top:8px;-webkit-line-clamp:2}
+  #strip{margin-top:12px}
+  nav.tabs{margin-top:28px;flex-wrap:wrap;gap:6px}
+  .tab{padding:0 16px}
+  #chips{flex-wrap:wrap;overflow:visible;min-height:0;padding:16px 0}
+  .chip{padding:0 16px}
+  .tablewrap{overflow-x:auto}
+  table{display:table;font-size:14px}
+  thead{display:table-header-group}
+  tbody{display:table-row-group}
+  tr{display:table-row;padding:0}
+  td,th{display:table-cell}
+  th{text-align:left;font-size:12px;color:var(--muted);letter-spacing:.04em;padding:8px 12px;font-weight:500;border-bottom:1px solid var(--border)}
+  td{padding:12px;border-bottom:1px solid var(--border)}
+  tr{border-top:0}
+  td.num,td.title,td.state,td.topic,td.note{margin:0;flex:none}
+  td.state{white-space:nowrap}
+  td.topic:empty,td.note:empty{display:table-cell}
+  tbody tr:hover td{background:var(--surface)}
+}
+</style>
+</head>
+<body>
+<div id="page" hidden>
+<header><div class="wrap">
+<svg class="mark" id="mark" viewBox="0 0 200 200" role="img" aria-label="Crank"><rect width="200" height="200" rx="46" fill="#1c1b29"/><g transform="translate(10.00,10.00) scale(0.9)"><path d="M139.8 66.6 A52 52 0 1 0 139.8 133.4" fill="none" stroke="#f4efe2" stroke-width="14" stroke-linecap="round"/><g class="arm"><line x1="100" y1="100" x2="158.00" y2="100.00" stroke="#ff5a36" stroke-width="12" stroke-linecap="round"/><circle cx="158.00" cy="100.00" r="17" fill="#ff5a36"/><circle cx="158.00" cy="100.00" r="6" fill="#1c1b29"/></g><circle cx="100" cy="100" r="14" fill="#ff5a36"/><circle cx="100" cy="100" r="5" fill="#1c1b29"/></g></svg>
+<div class="who"><h1>Doodle Poker</h1><div class="ctl" id="ctl" role="status"></div><div id="msg" role="status"></div><div id="holdwhy"></div></div>
+<button id="hold" type="button" aria-pressed="false">Hold all</button>
+</div></header>
+<main class="wrap">
+<div class="sec"><h2>Runners</h2><span id="runsum"></span></div>
+<div id="cards"></div>
+<div id="strip" role="status"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg><div id="striptext"></div></div>
+<nav class="tabs" id="tabs" role="tablist" aria-label="Lists"></nav>
+<div id="chips" role="group" aria-label="Topics"></div>
+<div class="tablewrap" id="listwrap"></div>
+<div id="failed" role="status"></div>
+<div class="foot" id="foot"></div>
+</main>
+</div>
+<div id="lost" hidden style="padding:48px 16px;text-align:center;color:#a9a5bf">Page not found.</div>
+
+<script>
+(function () {
+  'use strict';
+  var STORE = 'https://crankbuildstore.blob.core.windows.net/build/'; // (the folder the data file is read from, put in when the page is made from the project's settings; '' when the project has none)
+  var CHECK_EVERY = 10000;
+  var CONTROLLER_QUIET_MS = 2 * 60 * 1000;
+  var STALE_MS = 2 * 60 * 1000; // the crank in the header stops when the data is older than this
+  var INBOX_KEY = 'crank-inbox';
+  var TAB_KEY = 'crank-tab';
+  var DONE_STEP = 20;
+  var TABS = [['list', 'The list'], ['backlog', 'Backlog'], ['june', 'June backlog'], ['done', 'Done']];
+  // the words and the symbols of a state: a state is never told by colour alone
+  var ST = {
+    building: { sym: '▶', word: 'Building' },
+    owner: { sym: '⚑', word: 'Needs owner' },
+    waiting: { sym: '◔', word: 'Waiting for a runner' },
+    paused: { sym: '❚❚', word: 'Paused' }
+  };
+  var ROW = {
+    building: { sym: '▶', word: 'Building', cls: 's-building' },
+    owner: { sym: '⚑', word: 'Needs owner', cls: 's-owner' },
+    waiting: { sym: '◔', word: 'Waiting', cls: '' },
+    queued: { sym: '○', word: 'Queued', cls: '' },
+    paused: { sym: '❚❚', word: 'Paused', cls: '' },
+    failed: { sym: '✕', word: 'Failed', cls: 's-failed' },
+    blocked: { sym: '■', word: 'Blocked', cls: 's-failed' },
+    done: { sym: '✓', word: 'Done', cls: '' },
+    part: { sym: '✓', word: 'Done in part', cls: '' }
+  };
+  var RUNNER_STOPPED = { 'closed-by-hand': 1, 'waiting-limit': 1, 'needs-you': 1, 'finished': 1, 'retry': 1 };
+  var FINISHED = { done: 1, part: 1 };
+
+  // ---------- reading the progress file into what the page shows (no DOM here) ----------
+  function isOpen(i) { return i && !FINISHED[i.state]; }
+  function clean(s) { return String(s == null ? '' : s); }
+  function controllerOf(d) { return d && d.controller && typeof d.controller === 'object' ? d.controller : null; }
+  function queueEntry(d, n) { return (d && Array.isArray(d.queue) ? d.queue : []).filter(function (q) { return q && q.number === n; })[0] || null; }
+  function topicOfItem(d, i) { var q = queueEntry(d, i.number); return (q && q.topic) || i.topic || ''; }
+  function nameWords(t) { return t.charAt(0).toUpperCase() + t.slice(1) + ' runner'; }
+  function agoWords(ms) {
+    var s = Math.max(0, Math.round(ms / 1000));
+    if (s < 60) return s + ' s';
+    var m = Math.round(s / 60);
+    if (m < 60) return m + ' min';
+    var h = Math.floor(m / 60);
+    return h + ' h ' + (m % 60) + ' min';
+  }
+  function clockOf(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+  function taskPercent(r) {
+    var tasks = Array.isArray(r.tasks) ? r.tasks : [];
+    if (tasks.length) return Math.round(tasks.filter(function (t) { return t && t.state === 'done'; }).length / tasks.length * 100);
+    return typeof r.percent === 'number' ? Math.max(0, Math.min(100, Math.round(r.percent))) : 0;
+  }
+  /** Who is building which job now: [{ topic, number, title, percent }] from the runners list, the old single `now`, or the jobs marked working. */
+  function buildersOf(d) {
+    var out = [];
+    var stopped = {};
+    if (d.fleet && Array.isArray(d.fleet.runners)) d.fleet.runners.forEach(function (r) { if (r && RUNNER_STOPPED[r.state]) stopped[r.id] = true; });
+    var list = Array.isArray(d.runners) && d.runners.length ? d.runners : (d.state === 'working' && d.now ? [d.now] : []);
+    list.forEach(function (r) {
+      if (!r || !Number.isInteger(r.number) || (r.id && stopped[r.id])) return;
+      var it = (d.items || []).filter(function (i) { return i && i.number === r.number; })[0];
+      out.push({ topic: r.topic || (it ? topicOfItem(d, it) : ''), number: r.number, title: clean(r.title || (it && it.title)), percent: taskPercent(r) });
+    });
+    (d.items || []).forEach(function (i) {
+      if (i && i.state === 'working' && !out.some(function (o) { return o.number === i.number; }) && !(i.runner && stopped[i.runner])) out.push({ topic: topicOfItem(d, i), number: i.number, title: clean(i.title), percent: 0 });
+    });
+    return out;
+  }
+  function unmetOf(i, openSet) { return (Array.isArray(i.after) ? i.after : []).filter(function (n) { return openSet[n]; }); }
+  function topicPaused(d, name) {
+    var t = (d.topics || []).filter(function (x) { return x && x.name === name; })[0];
+    return !!(t && t.paused);
+  }
+  /** The state of one row of the list. */
+  function rowState(d, i, openSet) {
+    if (i.state === 'working') return 'building';
+    if (i.state === 'failed') return 'failed';
+    if (i.state === 'blocked') return 'blocked';
+    if (i.state === 'paused' || topicPaused(d, topicOfItem(d, i))) return 'paused';
+    if (i.state === 'needs-you' || i.attended === true) return 'owner';
+    return unmetOf(i, openSet).length ? 'waiting' : 'queued';
+  }
+  function rowNote(d, i, st, openSet) {
+    if (st === 'paused') return i.state === 'paused' ? clean(i.reason || 'paused') : 'topic paused';
+    if (st === 'owner') return clean(i.needs || '');
+    if (st === 'failed') return clean(i.reason || '');
+    var un = unmetOf(i, openSet);
+    if (un.length) return 'after ' + un.join(', ');
+    return clean(i.note || '');
+  }
+
+  /** Everything the page shows, worked out from one progress file. Pure: the same file gives the same answer. */
+  function buildModel(d, nowMs) {
+    var items = Array.isArray(d.items) ? d.items : [];
+    var open = items.filter(isOpen);
+    var openSet = {};
+    open.forEach(function (i) { openSet[i.number] = true; });
+    var c = controllerOf(d);
+    var held = !!d.hold;
+    var m = { held: held };
+
+    // the controller line
+    var seen = c && c.lastSeen ? new Date(c.lastSeen).getTime() : NaN;
+    if (!c) m.controller = { sym: '○', word: 'No controller data yet', ok: false, live: false };
+    else if (!isNaN(seen) && nowMs - seen > CONTROLLER_QUIET_MS) m.controller = { sym: '▲', word: 'Controller quiet since ' + clockOf(c.lastSeen), ok: false, live: false };
+    else if (c.mode === 'live') m.controller = { sym: '●', word: 'Controller running', ok: true, live: true };
+    else m.controller = { sym: '●', word: 'Controller watching (shadow)', ok: true, live: false };
+    var stamp = Date.parse(d.watcherCheckedAt || '') > Date.parse(d.updatedAt || '') ? d.watcherCheckedAt : d.updatedAt;
+    m.updatedAt = Date.parse(stamp || '');
+
+    // one card for each topic that has open jobs, in the queue's own topic order (never sorted by state)
+    var order = (d.topics || []).filter(function (t) { return t && t.name; }).slice().sort(function (a, b) { return (a.order || 0) - (b.order || 0); }).map(function (t) { return t.name; });
+    var seenTopic = {};
+    var byTopic = {};
+    open.forEach(function (i) { var t = topicOfItem(d, i); if (!byTopic[t]) byTopic[t] = []; byTopic[t].push(i); });
+    var extra = Object.keys(byTopic).filter(function (t) { return t && order.indexOf(t) < 0; }).sort();
+    var topics = order.concat(extra).filter(function (t) { if (seenTopic[t]) return false; seenTopic[t] = true; return !!byTopic[t]; });
+    var builders = buildersOf(d);
+    var fleetBy = {};
+    if (d.fleet && Array.isArray(d.fleet.runners)) d.fleet.runners.forEach(function (r) { if (r && r.topic) fleetBy[r.topic] = r; });
+    m.cards = topics.map(function (t) {
+      var its = byTopic[t];
+      var tp = (d.topics || []).filter(function (x) { return x && x.name === t; })[0] || {};
+      var b = builders.filter(function (x) { return x.topic === t; })[0];
+      var runnable = its.filter(function (i) { return i.state === 'waiting' && i.attended !== true && !unmetOf(i, openSet).length && !topicPaused(d, t); })[0];
+      var ownerJob = its.filter(function (i) { return i.state === 'needs-you' || i.attended === true || i.state === 'failed' || i.state === 'blocked'; })[0];
+      var card = { key: t, name: nameWords(t), topic: t, state: 'waiting', num: '', title: '', detail: '', percent: 0 };
+      var first = its[0];
+      if (tp.paused) {
+        card.state = 'paused';
+        card.detail = b ? 'finishing job ' + b.number : 'topic paused';
+      } else if (tp.state === 'needs you' || (fleetBy[t] && fleetBy[t].state === 'needs-you')) {
+        card.state = 'owner';
+        first = ownerJob || first;
+        card.detail = 'needs the owner';
+      } else if (b) {
+        card.state = 'building';
+        card.percent = b.percent;
+        first = its.filter(function (i) { return i.number === b.number; })[0] || { number: b.number, title: b.title };
+      } else if (its.every(function (i) { return i.state === 'paused'; })) {
+        card.state = 'paused';
+        card.detail = 'every open job is paused';
+      } else if (runnable) {
+        card.state = 'waiting';
+        first = runnable;
+        card.detail = 'ready, no runner on this topic';
+      } else if (ownerJob) {
+        card.state = 'owner';
+        first = ownerJob;
+        card.detail = ownerJob.state === 'failed' || ownerJob.state === 'blocked' ? 'is ' + ownerJob.state : 'needs the owner';
+      } else {
+        card.state = 'waiting';
+        var u = unmetOf(first, openSet)[0];
+        card.detail = u ? 'waiting on job ' + u : 'nothing is ready';
+      }
+      card.num = String(first.number);
+      card.title = clean(first.title);
+      return card;
+    });
+
+    // the merge runner (one card; always there)
+    var merging = (d.topics || []).filter(function (t) { return t && t.state === 'merging'; })[0];
+    var waitingMerge = (d.topics || []).filter(function (t) { return t && t.state === 'waiting to merge'; }).map(function (t) { return t.name; });
+    var merged = (d.topics || []).filter(function (t) { return t && t.state === 'merged'; }).map(function (t) { return t.name; });
+    if (merging) m.merge = { state: 'merging', sym: '▶', word: 'Merging', line: merging.name + ' into main' };
+    else if (held) m.merge = { state: 'held', sym: '▣', word: 'Held', line: 'Hold all is on: nothing new is merged' + (waitingMerge.length ? ' · waiting: ' + waitingMerge.join(', ') : '') };
+    else m.merge = { state: 'idle', sym: '○', word: 'Idle', line: (waitingMerge.length ? 'Waiting to merge: ' + waitingMerge.join(', ') : 'Nothing to merge') + (merged.length ? ' · last: ' + merged[merged.length - 1] : '') };
+
+    m.building = m.cards.filter(function (c2) { return c2.state === 'building'; }).length;
+    var counts = { building: 0, waiting: 0, owner: 0, paused: 0 };
+    m.cards.forEach(function (c2) { counts[c2.state] += 1; });
+    var parts = [];
+    if (counts.building) parts.push(counts.building + ' building');
+    if (counts.owner) parts.push(counts.owner + ' need the owner');
+    if (counts.waiting) parts.push(counts.waiting + ' waiting for a runner');
+    if (counts.paused) parts.push(counts.paused + ' paused');
+    m.runSummary = m.cards.length ? parts.join(' · ') : 'No topic has open jobs';
+
+    // the needs-the-owner strip
+    var needs = open.filter(function (i) { return i.state === 'needs-you' || i.attended === true || i.state === 'failed' || i.state === 'blocked'; });
+    if (!needs.length) m.strip = { count: 0, text: 'Nothing needs the owner' };
+    else m.strip = { count: needs.length, text: needs.length + (needs.length === 1 ? ' job needs' : ' jobs need') + ' the owner: ' + needs[0].number + ' ' + clean(needs[0].title) + (needs.length > 1 ? ' and ' + (needs.length - 1) + ' more' : '') };
+
+    // the tabs and their counts
+    var groups = d.backlog && Array.isArray(d.backlog.groups) ? d.backlog.groups : [];
+    var backlogCount = groups.reduce(function (s, g) { return s + (Array.isArray(g.items) ? g.items.length : 0); }, 0);
+    var june = Array.isArray(d.juneBacklog) ? d.juneBacklog : [];
+    var doneList = Array.isArray(d.doneList) ? d.doneList : [];
+    var doneCount = Number.isInteger(d.doneTotal) ? d.doneTotal : (doneList.length || items.filter(function (i) { return FINISHED[i.state]; }).length);
+    m.tabs = { list: open.length, backlog: backlogCount, june: june.length, done: doneCount };
+
+    // chips of The list: All, then each topic in the queue's order (jobs with no topic last), a state symbol where the topic has a card
+    var cardBy = {};
+    m.cards.forEach(function (c2) { cardBy[c2.topic] = c2; });
+    var chipTopics = order.concat(extra).filter(function (t) { return !!byTopic[t]; });
+    var chipSeen = {};
+    chipTopics = chipTopics.filter(function (t) { if (chipSeen[t]) return false; chipSeen[t] = true; return true; });
+    if (byTopic['']) chipTopics.push('');
+    m.chips = { list: [{ id: 'all', label: 'All', count: open.length, state: '' }].concat(chipTopics.map(function (t) { return { id: 'topic:' + t, label: t || 'no topic', count: byTopic[t].length, state: cardBy[t] ? cardBy[t].state : '' }; })),
+      backlog: [{ id: 'all', label: 'All', count: backlogCount, state: '' }].concat(groups.map(function (g, k) { return { id: 'group:' + k, label: clean(g.heading), count: (g.items || []).length, state: '' }; })),
+      june: [], done: [] };
+
+    // rows
+    m.rows = { list: open.map(function (i) {
+      var st = rowState(d, i, openSet);
+      return { key: 'j' + i.number, num: String(i.number), title: clean(i.title), topic: topicOfItem(d, i) || 'no topic', topicId: 'topic:' + topicOfItem(d, i), state: st, note: rowNote(d, i, st, openSet) };
+    }) };
+    m.rows.backlog = [];
+    groups.forEach(function (g, k) { (g.items || []).forEach(function (e, n) { m.rows.backlog.push({ key: 'b' + k + '-' + n, num: e.number == null ? '' : String(e.number), title: clean(e.title), topic: clean(g.heading), topicId: 'group:' + k, state: 'queued', note: '' }); }); });
+    m.rows.june = june.map(function (e, n) { return { key: 'm' + n, num: e.number == null ? '' : String(e.number), title: clean(e.title), topic: '', topicId: '', state: 'queued', note: '' }; });
+    m.rows.done = (doneList.length ? doneList : items.filter(function (i) { return FINISHED[i.state]; }).map(function (i) { return { number: i.number, title: i.title, result: i.state, finishedAt: i.finishedAt, tookSec: null }; }))
+      .map(function (e) { return { key: 'd' + e.number, num: String(e.number), title: clean(e.title), topic: '', topicId: '', state: e.result === 'part' ? 'part' : 'done', note: (e.finishedAt ? clockOf(e.finishedAt) : '') + (typeof e.tookSec === 'number' ? ' · took ' + agoWords(e.tookSec * 1000) : '') }; });
+    return m;
+  }
+
+  /** Does the crank in the header turn? Only while a runner is building AND the data is not over 2 minutes old (a data time that is not a number never turns it). Pure. */
+  function isSpinning(m, nowMs) {
+    return !!(m && m.building > 0 && !isNaN(m.updatedAt) && nowMs - m.updatedAt <= STALE_MS);
+  }
+
+  // ---------- the commands (the same route as the old page: a small file put into the command inbox) ----------
+  function parseFragment(hash) {
+    var parts = String(hash || '').replace(/^#/, '').split('&');
+    var out = { name: parts[0], inbox: null };
+    parts.slice(1).forEach(function (p) {
+      if (p.indexOf('inbox=') !== 0 || typeof atob !== 'function') return;
+      try {
+        var raw = p.slice(6).replace(/-/g, '+').replace(/_/g, '/');
+        while (raw.length % 4) raw += '=';
+        var j = JSON.parse(atob(raw));
+        if (j && typeof j.u === 'string' && /^https:\/\//.test(j.u) && typeof j.s === 'string' && j.s) out.inbox = { u: j.u, s: j.s };
+      } catch (e) { /* (not a key: ignored) */ }
+    });
+    return out;
+  }
+  /** Can the Hold all button send, and if not, the one line that says why. */
+  function holdState(d, inbox) {
+    var c = controllerOf(d);
+    if (!inbox) return { can: false, why: 'This page has no key to send commands with.' };
+    if (!c) return { can: false, why: 'The controller has not written to this page yet.' };
+    if (c.mode !== 'live') return { can: false, why: 'Commands are off while the controller is not live.' };
+    return { can: true, why: '' };
+  }
+  function commandFile(id, type, atMs) { return { id: id, source: 'page', at: new Date(atMs).toISOString(), commands: [{ type: type }] }; }
+
+  // ---------- drawing: each list is kept in step with the data, so a thing that did not change is not touched ----------
+  function makeDraw(document) {
+    function h(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+    function setText(e, v) { if (e.textContent !== v) e.textContent = v; }
+    function setCls(e, v) { if (e.className !== v) e.className = v; }
+    /** Puts `specs` ([{ key, make(), update(el) }]) into `box` in order: an element that is already there is updated in place, a new one is added at its place, one that is gone is removed. */
+    function sync(box, specs) {
+      var have = {};
+      Array.prototype.slice.call(box.children).forEach(function (e) { have[e.getAttribute('data-key')] = e; });
+      var want = {};
+      specs.forEach(function (s, k) {
+        want[s.key] = true;
+        var e = have[s.key];
+        if (!e) { e = s.make(); e.setAttribute('data-key', s.key); }
+        s.update(e);
+        if (box.children[k] !== e) box.insertBefore(e, box.children[k] || null);
+      });
+      Array.prototype.slice.call(box.children).forEach(function (e) { if (!want[e.getAttribute('data-key')]) box.removeChild(e); });
+    }
+    function cardSpec(c) {
+      return { key: 'topic:' + c.topic, make: function () {
+        var e = h('div', 'card');
+        e.setAttribute('data-topic', c.topic);
+        var nm = h('div', 'nm'), st = h('div', 'st'), jb = h('div', 'jb'), tt = h('div', 'tt'), tr = h('div', 'track'), bar = h('div', 'bar');
+        tr.append(bar);
+        e.append(nm, st, jb, tt, tr);
+        return e;
+      }, update: function (e) {
+        var k = e.children;
+        setCls(e, 'card ' + c.state);
+        setText(k[0], c.name);
+        setText(k[1], ST[c.state].sym + ' ' + ST[c.state].word);
+        setText(k[2], c.num + (c.detail ? ' · ' + c.detail : ''));
+        setText(k[3], c.title);
+        var w = c.state === 'building' ? c.percent + '%' : '0';
+        if (k[4].children[0].style.width !== w) k[4].children[0].style.width = w;
+        e.setAttribute('aria-label', c.name + ', ' + ST[c.state].word.toLowerCase() + (c.num ? ', job ' + c.num : ''));
+      } };
+    }
+    function mergeSpec(mg) {
+      return { key: 'merge', make: function () {
+        var e = h('div', 'card merge');
+        var tr = h('div', 'track'); tr.append(h('div', 'bar'));
+        e.append(h('div', 'nm', 'Merge runner'), h('div', 'st'), h('div', 'tt'), tr);
+        return e;
+      }, update: function (e) {
+        var k = e.children;
+        setCls(e, 'card merge ' + mg.state);
+        setText(k[1], mg.sym + ' ' + mg.word);
+        setText(k[2], mg.line);
+      } };
+    }
+    function drawCards(box, m) {
+      sync(box, m.cards.map(cardSpec).concat([mergeSpec(m.merge)]));
+    }
+    function rowSpec(r, cols) {
+      return { key: r.key, make: function () {
+        var tr = h('tr');
+        ['num', 'title', 'topic', 'state', 'note'].forEach(function (c) { tr.append(h('td', c)); });
+        return tr;
+      }, update: function (tr) {
+        var sig = [r.num, r.title, r.topic, r.state, r.note].join('\u0001');
+        if (tr._sig === sig) return;
+        tr._sig = sig;
+        var s = ROW[r.state];
+        var t = tr.children;
+        setText(t[0], r.num); setText(t[1], r.title); setText(t[2], r.topic);
+        t[3].textContent = '';
+        var w = h('span', s.cls, s.sym + ' ' + s.word);
+        t[3].append(w);
+        setText(t[4], r.note);
+      } };
+    }
+    function chipSpec(c, picked, pick) {
+      return { key: c.id, make: function () {
+        var b = h('button', 'chip'); b.type = 'button';
+        b.append(h('span', 'sym'), h('span', 'lb'), h('span', 'n'), h('span', 'sr'));
+        b.addEventListener('click', function () { pick(b.getAttribute('data-key')); });
+        return b;
+      }, update: function (b) {
+        var k = b.children;
+        setCls(k[0], 'sym ' + c.state);
+        k[0].setAttribute('aria-hidden', 'true');
+        setText(k[0], c.state ? ST[c.state].sym : '');
+        k[0].style.display = c.state ? '' : 'none';
+        setText(k[1], c.label);
+        setText(k[2], String(c.count));
+        setText(k[3], c.state ? ', ' + ST[c.state].word.toLowerCase() : '');
+        b.setAttribute('aria-pressed', picked === c.id ? 'true' : 'false');
+      } };
+    }
+    function tabSpec(t, count, current, pick) {
+      return { key: t[0], make: function () {
+        var b = h('button', 'tab'); b.type = 'button'; b.setAttribute('role', 'tab');
+        b.append(h('span', 'lb', t[1]), h('span', 'n'));
+        b.addEventListener('click', function () { pick(t[0]); });
+        return b;
+      }, update: function (b) {
+        setText(b.children[1], String(count));
+        b.setAttribute('aria-selected', current === t[0] ? 'true' : 'false');
+      } };
+    }
+    return { h: h, sync: sync, drawCards: drawCards, rowSpec: rowSpec, chipSpec: chipSpec, tabSpec: tabSpec, setText: setText, cardSpec: cardSpec, mergeSpec: mergeSpec };
+  }
+
+  if (typeof __crankExports === 'object' && __crankExports) {
+    __crankExports.buildModel = buildModel; __crankExports.isSpinning = isSpinning; __crankExports.makeDraw = makeDraw; __crankExports.holdState = holdState; __crankExports.parseFragment = parseFragment; __crankExports.commandFile = commandFile;
+    return;
+  }
+
+  // ---------- the page itself ----------
+  var $ = function (id) { return document.getElementById(id); };
+  var D = makeDraw(document);
+  var f0 = parseFragment(location.hash);
+  var name = f0.name;
+  var inbox = f0.inbox;
+  if (inbox) {
+    try { localStorage.setItem(INBOX_KEY, JSON.stringify(inbox)); } catch (e) { /* (works for this visit only) */ }
+    try { history.replaceState(null, '', (location.pathname || '') + (location.search || '') + '#' + name); } catch (e) { /* (nothing else is lost) */ }
+  } else {
+    try {
+      var s0 = JSON.parse(localStorage.getItem(INBOX_KEY) || 'null');
+      if (s0 && typeof s0.u === 'string' && /^https:\/\//.test(s0.u) && typeof s0.s === 'string' && s0.s) inbox = s0;
+    } catch (e) { inbox = null; }
+  }
+  var tab = 'list', chip = 'all', doneShown = DONE_STEP;
+  try { var t0 = localStorage.getItem(TAB_KEY); if (TABS.some(function (x) { return x[0] === t0; })) tab = t0; } catch (e) { /* (the choice is just not remembered) */ }
+  var data = null, model = null, gotGood = false, sentRefusal = '', lastSent = null;
+
+  function pickTab(t) { tab = t; chip = 'all'; doneShown = DONE_STEP; try { localStorage.setItem(TAB_KEY, t); } catch (e) { /* (not remembered) */ } draw(); }
+  function pickChip(id) { chip = id; draw(); }
+
+  function sendHold() {
+    var held = !!(data && data.hold);
+    var id = 'page-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+    var url = inbox.u.replace(/\/+$/, '') + '/' + encodeURIComponent(id) + '.json?' + inbox.s;
+    lastSent = { id: id, held: held };
+    sentRefusal = '';
+    fetch(url, { method: 'PUT', headers: { 'x-ms-blob-type': 'BlockBlob', 'Content-Type': 'application/json', 'x-ms-version': '2022-11-02' }, body: JSON.stringify(commandFile(id, held ? 'release-all' : 'hold-all', Date.now())) })
+      .then(function (r) { if (r.status !== 201 && !r.ok) throw new Error('status ' + r.status); })
+      .catch(function () { sentRefusal = 'Hold all could not be sent: no connection, or the link is no longer valid.'; draw(); });
+    draw();
+  }
+
+  function draw() {
+    if (!data) return;
+    var nowMs = Date.now();
+    model = buildModel(data, nowMs);
+    var m = model;
+    var ctl = $('ctl');
+    D.setText(ctl, m.controller.sym + ' ' + m.controller.word + ' · ' + (isNaN(m.updatedAt) ? 'no time' : 'updated ' + agoWords(nowMs - m.updatedAt) + ' ago'));
+    ctl.className = 'ctl ' + (m.controller.ok ? 'ok' : 'warn');
+    // an answer of the controller to the command just sent: only a refusal is written
+    var msg = sentRefusal;
+    if (!msg && lastSent && Array.isArray(data.results)) {
+      var r = data.results.filter(function (x) { return x && x.id === String(lastSent.id).slice(0, 36); })[0];
+      if (r && !r.ok) msg = 'Refused: ' + (r.why || 'no reason given');
+    }
+    D.setText($('msg'), msg);
+    var hs = holdState(data, inbox);
+    var hb = $('hold');
+    D.setText(hb, m.held ? 'Release all' : 'Hold all');
+    hb.setAttribute('aria-pressed', m.held ? 'true' : 'false');
+    hb.disabled = !hs.can;
+    D.setText($('holdwhy'), hs.why);
+    D.setText($('runsum'), m.runSummary);
+    D.drawCards($('cards'), m);
+    var strip = $('strip');
+    strip.className = m.strip.count ? 'on' : '';
+    D.setText($('striptext'), m.strip.text);
+    D.sync($('tabs'), TABS.map(function (t) { return D.tabSpec(t, m.tabs[t[0]], tab, pickTab); }));
+    var chips = m.chips[tab] || [];
+    if (!chips.some(function (c) { return c.id === chip; })) chip = 'all';
+    $('chips').hidden = !chips.length;
+    D.sync($('chips'), chips.map(function (c) { return D.chipSpec(c, chip, pickChip); }));
+    var rows = (m.rows[tab] || []).filter(function (r) { return chip === 'all' || r.topicId === chip; });
+    var total = rows.length;
+    if (tab === 'done') rows = rows.slice(0, doneShown);
+    var wrap = $('listwrap');
+    if (!wrap.children.length) {
+      var tb = D.h('table'), th = D.h('thead'), hr = D.h('tr');
+      ['Job', 'Title', 'Topic', 'State', 'Note'].forEach(function (x) { var c = D.h('th', '', x); c.setAttribute('scope', 'col'); hr.append(c); });
+      th.append(hr); tb.append(th, D.h('tbody'));
+      var em = D.h('div', 'empty'); em.id = 'empty';
+      var more = D.h('button', 'more', 'Show more'); more.id = 'more'; more.type = 'button';
+      more.addEventListener('click', function () { doneShown += DONE_STEP; draw(); });
+      wrap.append(tb, em, more);
+    }
+    D.sync(wrap.children[0].children[1], rows.map(function (r) { return D.rowSpec(r); }));
+    wrap.children[0].hidden = !rows.length;
+    D.setText(wrap.children[1], rows.length ? '' : 'Nothing here.');
+    wrap.children[1].hidden = !!rows.length;
+    wrap.children[2].hidden = !(tab === 'done' && total > rows.length);
+    tick();
+  }
+  function tick() {
+    if (!data || !model) return;
+    var nowMs = Date.now();
+    D.setText($('ctl'), model.controller.sym + ' ' + model.controller.word + ' · ' + (isNaN(model.updatedAt) ? 'no time' : 'updated ' + agoWords(nowMs - model.updatedAt) + ' ago'));
+    var mk = $('mark'), spin = isSpinning(model, nowMs);
+    if (mk.classList.contains('spin') !== spin) mk.classList.toggle('spin', spin);
+    D.setText($('foot'), 'Checked ' + clockOf(new Date(nowMs).toISOString()) + ' · refreshes every ' + CHECK_EVERY / 1000 + ' s');
+  }
+  function load() {
+    if (document.hidden) return;
+    fetch(STORE + name + '.json?t=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) {
+        if (r.status === 404 && !gotGood) { $('page').hidden = true; $('lost').hidden = false; return null; }
+        if (!r.ok) throw new Error('status ' + r.status);
+        return r.json();
+      })
+      .then(function (j) {
+        if (!j) return;
+        if (!j.updatedAt || !Array.isArray(j.items)) throw new Error('shape');
+        gotGood = true;
+        $('page').hidden = false;
+        $('failed').textContent = '';
+        data = j;
+        draw();
+      })
+      .catch(function () {
+        if (!gotGood) return;
+        $('failed').textContent = 'The page cannot fetch the progress just now. It is showing what it last had.';
+      });
+  }
+  if (!/^[a-z0-9]{24,}$/.test(name)) { $('lost').hidden = false; return; }
+  $('hold').addEventListener('click', function () { if (inbox) sendHold(); });
+  load();
+  setInterval(load, CHECK_EVERY);
+  setInterval(tick, 1000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) { load(); tick(); } });
+})();
+</script>
+</body>
+</html>
