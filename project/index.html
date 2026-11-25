@@ -261,7 +261,7 @@ td.topic:empty,td.note:empty{display:none}
 <script>
 (function () {
   'use strict';
-  var STORE = '__CRANK_STORE__'; // (the folder the data file is read from, put in when the page is made from the project's settings; '' when the project has none)
+  var STORE = 'https://crankbuildstore.blob.core.windows.net/build/'; // (the folder the data file is read from, put in when the page is made from the project's settings; '' when the project has none)
   var CHECK_EVERY = 10000;
   var CONTROLLER_QUIET_MS = 2 * 60 * 1000;
   var STALE_MS = 2 * 60 * 1000; // the crank in the header stops when the data is older than this
