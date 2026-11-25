@@ -299,6 +299,10 @@ td.topic:empty,td.note:empty{display:none}
     waiting: { sym: '◔', word: 'Waiting', cls: '' },
     queued: { sym: '○', word: 'Queued', cls: '' },
     paused: { sym: '❚❚', word: 'Paused', cls: '' },
+    failed: { sym: '✕', word: 'Failed', cls: 's-failed' },
+    blocked: { sym: '■', word: 'Blocked', cls: 's-failed' },
+    done: { sym: '✓', word: 'Done', cls: '' },
+    part: { sym: '✓', word: 'Done', cls: '' }, // (job 66: no more "Done in part"; an old progress file that still says part shows as Done)
     built: { sym: '◐', word: 'Built', cls: '' },
     merged: { sym: '✓', word: 'Merged', cls: '' },
     cancelled: { sym: '✕', word: 'Cancelled', cls: '' }
