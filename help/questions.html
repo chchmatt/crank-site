@@ -9,7 +9,6 @@ h1{font-size:2rem;line-height:1.2;margin:.4em 0 .5em}h2{font-size:1.35rem;line-h
 p,ul,ol{margin:.7em 0}li{margin:.35em 0}ul ul,ol ul{margin:.3em 0}
 code{font-family:"JetBrains Mono",ui-monospace,Consolas,monospace;font-size:.88em;background:#25243a;border:1px solid #3a3957;border-radius:4px;padding:1px 5px}
 .table{overflow-x:auto;margin:1em 0}table{border-collapse:collapse;width:100%;background:#25243a}th,td{border:1px solid #3a3957;padding:8px 10px;text-align:left;vertical-align:top}th{color:#a9a5bf;font-weight:600}
-.soon{display:inline-block;margin-left:8px;padding:2px 8px;border:1px solid #3a3957;border-radius:999px;color:#a9a5bf;font-size:.72rem;font-weight:500;vertical-align:middle}
 .lead{color:#a9a5bf}footer{margin-top:48px;padding-top:16px;border-top:1px solid #3a3957;color:#a9a5bf;font-size:.9rem}footer a{display:inline-flex;align-items:center;min-height:44px}</style></head>
 <body><div class="wrap"><nav class="top"><a href="/">Crank</a><a href="index.html">&larr; All help pages</a></nav>
 <main>
@@ -23,31 +22,17 @@ code{font-family:"JetBrains Mono",ui-monospace,Consolas,monospace;font-size:.88e
 <p><strong>Why is a topic Needs operator with &quot;Nothing was forced&quot;?</strong> GitHub and your computer both have new commits on that branch, so it can't move forward without throwing one side away. Crank never does that; a person decides. Other topics carry on. → <a href="branches.html#never-force">Branches: never force</a></p>
 <p><strong>Did Crank pull <code>main</code> into my <code>version-2</code> branch?</strong> No. A non-main base is made from <code>main</code> once and never updated from it automatically. → <a href="merging.html#base-branches-other-than-main">Merging: base branches</a></p>
 <h2 id="jobs">Jobs</h2>
-<p><strong>Why is my job Waiting and not Queued?</strong> It waits for another job that isn't Built yet; the note names it (&quot;after CB-12, paused&quot; means that job is paused). → <a href="jobs.html#what-a-job-waits-for-after">Jobs: what a job waits for</a></p>
 <p><strong>I dragged a job up and it slid back down. Why?</strong> It can't sit above a job it waits for, so it went to just after the last one; or you dropped it among the pinned Building and Needs operator jobs. → <a href="jobs.html#order">Jobs: order</a></p>
-<p><strong>Why can't I pause a Building job?</strong> A job being built can't be paused. Use End task (now) or End after (when it finishes). → <a href="runners.html#ending-runners">Runners: ending runners</a></p>
-<p><strong>My job is Built. Why isn't it done?</strong> Built means finished and tested in its topic; it's done when the topic merges into its base and the job is Merged. → <a href="jobs.html#every-job-has-exactly-one-state">Jobs: states</a></p>
 <p><strong>What does &quot;(split from CB-11)&quot; mean?</strong> CB-11 finished its own work, but some steps had to wait (for example, until the topic reached <code>main</code>). Those steps became this new job. → <a href="jobs.html#unfinished-work-becomes-a-split-job-no-done-in-part">Jobs: split jobs</a></p>
 <h2 id="runners">Runners</h2>
-<p><strong>I pressed End task. Why is the job Paused?</strong> So it doesn't start again by itself and the jobs that wait for it don't run. Resume it when you're ready; its work was saved. → <a href="runners.html#ending-runners">Runners</a></p>
 <p><strong>My computer went offline. What happened to the job?</strong> It went back Queued at the front of its topic, with its work saved, and it resumes by itself once you're back online. → <a href="runners.html#going-offline-sleep-and-power-loss">Runners: going offline</a></p>
 <p><strong>Why does the page say Lost contact?</strong> The controller missed 4 heartbeats (about 2 minutes): the computer may be off, asleep or offline. → <a href="runners.html#going-offline-sleep-and-power-loss">Runners: going offline</a></p>
-<p><strong>Why has a topic got no runner?</strong> Its card always says why, for example all runners busy, paused, scheduled, a usage limit, or nothing left to build. → <a href="topics.html#a-topic-with-no-runner-always-says-why">Topics</a></p>
-<p><strong>Why did a job stop with &quot;it used more memory than its cap&quot;?</strong> The runner went over the memory cap set for its controller, so its task was ended and the job Paused. Raise the cap in project settings, or resume it. → <a href="runners.html#how-many">Runners: how many</a></p>
 <h2 id="usage-and-schedules">Usage and schedules</h2>
 <p><strong>Why did runners stop starting jobs?</strong> Your Claude usage reached the threshold you set. Crank checks every minute and starts again as soon as you're under it. → <a href="usage-and-schedules.html#the-usage-threshold">Usage</a></p>
 <p><strong>Can Crank see or share my Claude usage?</strong> Your computer reads it to decide whether to start jobs. No figure ever leaves your computer. → <a href="usage-and-schedules.html#the-usage-threshold">Usage</a></p>
 <p><strong>My topic's window closed. Was its job stopped?</strong> No. A window only controls when jobs start; a running job always finishes. → <a href="usage-and-schedules.html#schedules">Schedules</a></p>
 <h2 id="merging">Merging</h2>
 <p><strong>Why did my topic merge while one of its jobs was still Paused?</strong> A topic merges when nothing is Building or Needs operator and at least one job is Built. Paused, scheduled and waiting jobs join a later merge. Only finished work is ever merged. → <a href="merging.html#when-a-topic-is-ready-to-merge">Merging</a></p>
-<p><strong>Why hasn't my topic merged?</strong> Check its merge rule (Not before, After topics, Hold) and its card: it may be testing against main, held for Release, waiting for a fix job, or have something Building or Needs operator. → <a href="merging.html#each-topics-merge-rule">Merging</a></p>
 <p><strong>Why did it merge without running the tests again?</strong> It was already fully tested against the current <code>main</code>, and <code>main</code> hadn't changed since. → <a href="merging.html#tested-against-main-then-a-quick-merge">Merging: tested against main</a></p>
-<p><strong>Can I make a topic merge right now?</strong> Coming soon: press <strong>Test and merge after current job</strong>. When the current job finishes, the topic pulls its base, runs the full tests, fixes what fails and merges, whatever its merge rule says. Other jobs in the topic wait meanwhile, so fixes land in one place. → <a href="merging.html#testing-and-merging-on-request">Merging: on request</a></p>
-<p><strong>Can I run the full tests without merging?</strong> Coming soon: <strong>Test after current job</strong>, or the automatic setting (every N jobs or every N hours). → <a href="merging.html#testing-and-merging-on-request">Merging: on request</a></p>
-<h2 id="controllers-and-privacy">Controllers and privacy</h2>
-<p><strong>What does Crank send from my computer?</strong> The queue's state, plain reasons, the heartbeat time and your commands. Never logs, memory or usage figures, or your computer's name, specs, paths or IP. → <a href="controllers-and-privacy.html#what-never-leaves-your-computer">Privacy</a></p>
-<p><strong>Another computer says &quot;Run by Controller 1&quot;. Why won't it start?</strong> Only one controller runs a project at a time. If Controller 1 has gone quiet, press Take over. → <a href="controllers-and-privacy.html#one-controller-per-project-the-lease">The lease</a></p>
-<p><strong>Will another computer take over if mine dies?</strong> Only when you press Take over. Nothing takes over by itself. → <a href="controllers-and-privacy.html#taking-over">Taking over</a></p>
-
 </main>
 <footer><a href="index.html">Help index</a> &middot; <a href="/">crankbuild.com</a></footer></div></body></html>
