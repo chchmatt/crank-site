@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
 <meta name="robots" content="noindex">
-<title>Doodle Poker build</title>
+<title>Build status</title>
 <style>
 :root{--ground:#1c1b29;--surface:#25243a;--border:#3a3957;--text:#f4efe2;--muted:#a9a5bf;--accent:#ff5a36;--amber:#f5c05a;--green:#5fd39a;--chip:#2e2d46;--warm:#33211f;--warm-track:#5a3a36;
 --card-h:144px;--merge-h:108px;--gutter:16px}
@@ -161,7 +161,7 @@ td.topic:empty,td.note:empty{display:none}
 <div id="page" hidden>
 <header><div class="wrap">
 <svg class="mark" id="mark" viewBox="0 0 200 200" role="img" aria-label="Crank"><rect width="200" height="200" rx="46" fill="#1c1b29"/><g transform="translate(10.00,10.00) scale(0.9)"><path d="M139.8 66.6 A52 52 0 1 0 139.8 133.4" fill="none" stroke="#f4efe2" stroke-width="14" stroke-linecap="round"/><g class="arm"><line x1="100" y1="100" x2="158.00" y2="100.00" stroke="#ff5a36" stroke-width="12" stroke-linecap="round"/><circle cx="158.00" cy="100.00" r="17" fill="#ff5a36"/><circle cx="158.00" cy="100.00" r="6" fill="#1c1b29"/></g><circle cx="100" cy="100" r="14" fill="#ff5a36"/><circle cx="100" cy="100" r="5" fill="#1c1b29"/></g></svg>
-<div class="who"><h1>Doodle Poker</h1><div class="ctl" id="ctl" role="status"></div><div id="msg" role="status"></div><div id="holdwhy"></div></div>
+<div class="who"><h1 id="proj">Build status</h1><div class="ctl" id="ctl" role="status"></div><div id="msg" role="status"></div><div id="holdwhy"></div></div>
 <button id="hold" type="button" aria-pressed="false">Hold all</button>
 </div></header>
 <main class="wrap">
@@ -533,7 +533,7 @@ td.topic:empty,td.note:empty{display:none}
   }
 
   if (typeof __crankExports === 'object' && __crankExports) {
-    __crankExports.buildModel = buildModel; __crankExports.isSpinning = isSpinning; __crankExports.makeDraw = makeDraw; __crankExports.holdState = holdState; __crankExports.parseFragment = parseFragment; __crankExports.commandFile = commandFile;
+    __crankExports.buildModel = buildModel; __crankExports.isSpinning = isSpinning; __crankExports.makeDraw = makeDraw; __crankExports.holdState = holdState; __crankExports.parseFragment = parseFragment; __crankExports.commandFile = commandFile; __crankExports.projectTitles = projectTitles;
     return;
   }
 
@@ -571,8 +571,20 @@ td.topic:empty,td.note:empty{display:none}
     draw();
   }
 
+  // (job 4) the project's own name comes with the data (`project`), as text; with none (an older upload) the neutral words stand
+  function projectTitles(d) {
+    var pn = d && typeof d.project === 'string' && d.project.length > 0 && d.project.length <= 80 ? d.project : '';
+    return { heading: pn || 'Build status', title: pn ? pn + ' build' : 'Build status' };
+  }
+  function showName() {
+    var t = projectTitles(data);
+    if (document.title !== t.title) document.title = t.title;
+    var h = $('proj');
+    if (h && h.textContent !== t.heading) h.textContent = t.heading;
+  }
   function draw() {
     if (!data) return;
+    showName();
     var nowMs = Date.now();
     model = buildModel(data, nowMs);
     var m = model;
