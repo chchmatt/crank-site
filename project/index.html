@@ -173,6 +173,13 @@ nav.tabs::-webkit-scrollbar,#chips::-webkit-scrollbar{display:none}
 .tab[aria-selected="true"]{border-bottom-color:var(--accent);color:var(--text);font-weight:600}
 .tab .n,.chip .n{font-family:"JetBrains Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:12px;margin-left:4px}
 .tab[aria-selected="true"] .n{color:var(--accent)}
+#statechips{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:8px;padding:12px 0 0;scrollbar-width:none}
+#statechips[hidden]{display:none}
+.chip .badge{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#d8322a;color:#fff;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.chip .badge[hidden]{display:none}
+.pz{min-height:44px;min-width:44px;padding:0 14px;margin-left:8px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:14px}
+.pz[hidden]{display:none}
+.pz:disabled{opacity:.55}
 #chips{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:8px;padding:12px 0;min-height:68px;scrollbar-width:none}
 .chip{flex:none;min-height:44px;padding:0 14px;border-radius:999px;font-size:14px;font-weight:500;white-space:nowrap;display:flex;align-items:center;gap:8px;border:1px solid var(--border);background:transparent;color:var(--text)}
 .chip .n{margin:0;padding:1px 7px;border-radius:999px;background:var(--chip);color:var(--text)}
@@ -248,6 +255,7 @@ td.topic:empty,td.note:empty{display:none}
 <div id="cards"></div>
 <div id="strip" role="status"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg><div id="striptext"></div></div>
 <nav class="tabs" id="tabs" role="tablist" aria-label="Lists"></nav>
+<div id="statechips" role="group" aria-label="States"></div>
 <div id="chips" role="group" aria-label="Topics"></div>
 <div id="toast" role="status"></div>
 <div class="tablewrap" id="listwrap"></div>
@@ -268,7 +276,7 @@ td.topic:empty,td.note:empty{display:none}
   var INBOX_KEY = 'crank-inbox';
   var TAB_KEY = 'crank-tab';
   var DONE_STEP = 20;
-  var TABS = [['list', 'The list'], ['merges', 'Merge history'], ['backlog', 'Backlog'], ['june', 'June backlog'], ['done', 'Done']];
+  var TABS = [['list', 'The list'], ['merges', 'Merge history'], ['backlog', 'Backlog'], ['june', 'June backlog']];
   // the words and the symbols of a state: a state is never told by colour alone
   var ST = {
     building: { sym: '▶', word: 'Building' },
@@ -291,11 +299,16 @@ td.topic:empty,td.note:empty{display:none}
     waiting: { sym: '◔', word: 'Waiting', cls: '' },
     queued: { sym: '○', word: 'Queued', cls: '' },
     paused: { sym: '❚❚', word: 'Paused', cls: '' },
-    failed: { sym: '✕', word: 'Failed', cls: 's-failed' },
-    blocked: { sym: '■', word: 'Blocked', cls: 's-failed' },
-    done: { sym: '✓', word: 'Done', cls: '' },
-    part: { sym: '✓', word: 'Done in part', cls: '' }
+    built: { sym: '◐', word: 'Built', cls: '' },
+    merged: { sym: '✓', word: 'Merged', cls: '' },
+    cancelled: { sym: '✕', word: 'Cancelled', cls: '' }
   };
+  // job 99: the one state of a row in the words of the progress file's jobState, and the state chip it counts under (To do, Active, Done, Cancelled)
+  var JOB_STATE = { waiting: 'waiting', queued: 'queued', paused: 'paused', building: 'building', 'needs-operator': 'owner', built: 'built', merged: 'merged', cancelled: 'cancelled' };
+  var GROUP = { waiting: 'todo', queued: 'todo', paused: 'todo', building: 'active', owner: 'active', built: 'active', merged: 'done', cancelled: 'cancelled' };
+  var GROUPS = [['todo', 'To do'], ['active', 'Active'], ['done', 'Done'], ['cancelled', 'Cancelled']];
+  var GROUPS_KEY = 'crank-states';
+  var BUILDING_LINE = "A job being built can't be paused. Stop ends the build.";
   var RUNNER_STOPPED = { 'closed-by-hand': 1, 'waiting-limit': 1, 'needs-you': 1, 'finished': 1, 'retry': 1 };
   var FINISHED = { done: 1, part: 1 };
 
@@ -372,16 +385,19 @@ td.topic:empty,td.note:empty{display:none}
   function rowState(d, i, openSet) {
     if (i.state === 'working') return 'building';
     if (questionOf(d, i.number)) return 'owner';
-    if (i.state === 'failed') return 'failed';
-    if (i.state === 'blocked') return 'blocked';
+    var js = JOB_STATE[i.jobState];
+    if (js) return (js === 'waiting' || js === 'queued') && topicPaused(d, topicOfItem(d, i)) ? 'paused' : js; // (job 99: a file from job 31 on says the one state itself)
+    if (i.state === 'failed' || i.state === 'blocked') return 'owner';
     if (i.state === 'paused' || topicPaused(d, topicOfItem(d, i))) return 'paused';
     if (i.state === 'needs-you' || i.attended === true) return 'owner';
     return unmetOf(i, openSet).length ? 'waiting' : 'queued';
   }
   function rowNote(d, i, st, openSet) {
     if (st === 'paused') return i.state === 'paused' ? clean(i.reason || 'paused') : 'topic paused';
-    if (st === 'owner') return clean((questionOf(d, i.number) || {}).say || i.needs || '');
-    if (st === 'failed') return clean(i.reason || '');
+    if (st === 'owner') return clean((questionOf(d, i.number) || {}).say || i.needs || i.jobNote || (i.state === 'failed' || i.state === 'blocked' ? i.state + (i.reason ? ': ' + i.reason : '') : ''));
+    if (st === 'building') return BUILDING_LINE;
+    if (st === 'built') return clean(i.jobNote || (topicOfItem(d, i) ? 'waiting for topic ' + topicOfItem(d, i) + ' to reach main' : 'waiting for its topic to reach main'));
+    if (i.jobNote) return clean(i.jobNote);
     var un = unmetOf(i, openSet);
     if (un.length) return 'after ' + un.join(', ');
     return clean(i.note || '');
@@ -499,7 +515,7 @@ td.topic:empty,td.note:empty{display:none}
     var doneList = Array.isArray(d.doneList) ? d.doneList : [];
     var doneCount = Number.isInteger(d.doneTotal) ? d.doneTotal : (doneList.length || items.filter(function (i) { return FINISHED[i.state]; }).length);
     var runs = Array.isArray(d.mergeHistory) ? d.mergeHistory : [];
-    m.tabs = { list: open.length, merges: runs.length, backlog: backlogCount, june: june.length, done: doneCount };
+    m.tabs = { list: open.length, merges: runs.length, backlog: backlogCount, june: june.length };
 
     // chips of The list: All, then each topic in the queue's order (jobs with no topic last), a state symbol where the topic has a card
     var cardBy = {};
@@ -510,14 +526,48 @@ td.topic:empty,td.note:empty{display:none}
     if (byTopic['']) chipTopics.push('');
     m.chips = { list: [{ id: 'all', label: 'All', count: open.length, state: '' }].concat(chipTopics.map(function (t) { return { id: 'topic:' + t, label: t || 'no topic', count: byTopic[t].length, state: cardBy[t] ? cardBy[t].state : '', topic: t }; })),
       backlog: [{ id: 'all', label: 'All', count: backlogCount, state: '' }].concat(groups.map(function (g, k) { return { id: 'group:' + k, label: clean(g.heading), count: (g.items || []).length, state: '' }; })),
-      merges: [], june: [], done: [] };
+      merges: [], june: [] };
 
     // rows
+    function listRow(i, st, note, extra) {
+      var tp = topicOfItem(d, i);
+      return Object.assign({ key: 'j' + i.number, num: String(i.number), title: clean(i.title), topic: tp || 'no topic', topicId: 'topic:' + tp, state: st, group: GROUP[st], note: note, after: Array.isArray(i.after) ? i.after.filter(function (x) { return openSet[x]; }) : [] }, extra || {});
+    }
     m.rows = { list: open.map(function (i) {
       var st = rowState(d, i, openSet);
-      return { key: 'j' + i.number, num: String(i.number), title: clean(i.title), topic: topicOfItem(d, i) || 'no topic', topicId: 'topic:' + topicOfItem(d, i), state: st, note: rowNote(d, i, st, openSet), after: Array.isArray(i.after) ? i.after.filter(function (x) { return openSet[x]; }) : [] };
+      var pz = '';
+      if (st === 'waiting' || st === 'queued') pz = 'pause'; else if (st === 'paused' && !topicPaused(d, topicOfItem(d, i))) pz = 'resume';
+      return listRow(i, st, rowNote(d, i, st, openSet), { pause: pz });
     }) };
     m.rows.list = pinRows(m.rows.list); // (job 38: Needs operator first, then Building, then the queue's own order)
+    // job 99: the rest of the one list: built jobs (finished, their topic not on main yet), merged jobs (what reached main, newest first) and cancelled jobs
+    var listed = {};
+    m.rows.list.forEach(function (r) { listed[r.num] = true; });
+    var finishedItems = items.filter(function (i) { return FINISHED[i.state]; });
+    finishedItems.forEach(function (i) {
+      if (i.jobState === 'built') { listed[i.number] = true; m.rows.list.push(listRow(i, 'built', rowNote(d, i, 'built', openSet), { pause: '' })); }
+    });
+    var mergedSrc = doneList.length ? doneList : finishedItems.filter(function (i) { return i.jobState !== 'built'; }).map(function (i) { return { number: i.number, title: i.title, result: i.state, finishedAt: i.finishedAt, tookSec: null, topic: i.topic }; });
+    mergedSrc.forEach(function (e) {
+      if (listed[e.number]) return;
+      listed[e.number] = true;
+      var when = e.mergedAt || e.finishedAt;
+      m.rows.list.push({ key: 'd' + e.number, num: String(e.number), title: clean(e.title), topic: e.topic ? clean(e.topic) : '', topicId: e.topic ? 'topic:' + clean(e.topic) : '', state: 'merged', group: 'done', pause: '',
+        note: (when ? (e.mergedAt ? 'reached main ' : '') + clockOf(when) : '') + (typeof e.tookSec === 'number' ? ' · took ' + agoWords(e.tookSec * 1000) : '') });
+    });
+    finishedItems.forEach(function (i) {
+      if (i.jobState === 'merged' && !listed[i.number]) { listed[i.number] = true; m.rows.list.push(listRow(i, 'merged', '', { pause: '' })); }
+    });
+    (Array.isArray(d.cancelled) ? d.cancelled : []).forEach(function (e) {
+      if (!e || listed[e.number]) return;
+      listed[e.number] = true;
+      m.rows.list.push({ key: 'x' + e.number, num: String(e.number), title: clean(e.title), topic: '', topicId: '', state: 'cancelled', group: 'cancelled', pause: '', note: clean(e.why || '') });
+    });
+    // the four state chips: how many rows each holds, and how many jobs need the operator (the badge)
+    m.states = { todo: 0, active: 0, done: 0, cancelled: 0, needs: 0 };
+    m.rows.list.forEach(function (r) { m.states[r.group] += 1; if (r.state === 'owner') m.states.needs += 1; });
+    m.states.done = Math.max(m.states.done, doneCount);
+    m.tabs.list = m.states.todo + m.states.active; // (the list tab counts what its default view shows)
     // job 18: the merge runner's runs, newest first as they come: topic, branch, start (HH:MM, with the date when not today), run time, result, issue
     var today = new Date(nowMs);
     m.rows.merges = runs.filter(function (r) { return r && typeof r === 'object'; }).map(function (r, n) {
@@ -529,13 +579,6 @@ td.topic:empty,td.note:empty{display:none}
     m.rows.backlog = [];
     groups.forEach(function (g, k) { (g.items || []).forEach(function (e, n) { m.rows.backlog.push({ key: 'b' + k + '-' + n, num: e.number == null ? '' : String(e.number), title: clean(e.title), topic: clean(g.heading), topicId: 'group:' + k, state: 'queued', note: '' }); }); });
     m.rows.june = june.map(function (e, n) { return { key: 'm' + n, num: e.number == null ? '' : String(e.number), title: clean(e.title), topic: '', topicId: '', state: 'queued', note: '' }; });
-    m.rows.done = (doneList.length ? doneList : items.filter(function (i) { return FINISHED[i.state]; }).map(function (i) { return { number: i.number, title: i.title, result: i.state, finishedAt: i.finishedAt, tookSec: null, topic: i.topic }; }))
-      .map(function (e) { return { key: 'd' + e.number, num: String(e.number), title: clean(e.title), topic: e.topic ? clean(e.topic) : '', topicId: e.topic ? 'topic:' + clean(e.topic) : '', state: e.result === 'part' ? 'part' : 'done', note: (e.finishedAt ? clockOf(e.finishedAt) : '') + (typeof e.tookSec === 'number' ? ' · took ' + agoWords(e.tookSec * 1000) : '') }; });
-    // job 30: the Done tab has chips like The list: All, then each topic that appears in what it shows (a job with no topic has none and shows no chip)
-    var doneTopics = [];
-    var doneCounts = {};
-    m.rows.done.forEach(function (r) { if (r.topic) { if (!doneCounts[r.topic]) { doneCounts[r.topic] = 0; doneTopics.push(r.topic); } doneCounts[r.topic] += 1; } });
-    m.chips.done = doneTopics.length ? [{ id: 'all', label: 'All', count: m.rows.done.length, state: '' }].concat(doneTopics.map(function (t) { return { id: 'topic:' + t, label: t, count: doneCounts[t], state: '' }; })) : [];
     return m;
   }
 
@@ -754,11 +797,15 @@ td.topic:empty,td.note:empty{display:none}
         up.addEventListener('click', function () { if (hooks && hooks.step) hooks.step(tr, -1); });
         dn.addEventListener('click', function () { if (hooks && hooks.step) hooks.step(tr, 1); });
         mv.append(up, dn);
-        tr.children[4].append(h('span', 'nt'), mv);
+        var pz = h('button', 'pz');
+        pz.type = 'button';
+        pz.hidden = true;
+        pz.addEventListener('click', function () { if (hooks && hooks.pause && tr._row) hooks.pause(tr._row); });
+        tr.children[4].append(h('span', 'nt'), mv, pz);
         return tr;
       }, update: function (tr) {
         tr._row = r;
-        var sig = [r.num, r.title, r.topic, r.state, r.note, r.pinned ? 'p' : '', r.movable ? 'm' : '', r.moving ? 'g' : ''].join('\u0001');
+        var sig = [r.num, r.title, r.topic, r.state, r.note, r.pinned ? 'p' : '', r.movable ? 'm' : '', r.moving ? 'g' : '', r.pause || '', r.busy || ''].join('\u0001');
         if (tr._sig === sig) return;
         tr._sig = sig;
         var s = ROW[r.state];
@@ -773,7 +820,12 @@ td.topic:empty,td.note:empty{display:none}
         t[3].append(w);
         var note = t[4].children[0], mv = t[4].children[1];
         note.textContent = '';
-        if (r.moving) { var bz = h('span', 'busy', '◔'); bz.setAttribute('aria-hidden', 'true'); note.append(bz, h('span', '', 'Moving…')); } else setText(note, r.note);
+        if (r.moving || r.busy) { var bz = h('span', 'busy', '◔'); bz.setAttribute('aria-hidden', 'true'); note.append(bz, h('span', '', r.busy || 'Moving…')); } else setText(note, r.note);
+        var pzb = t[4].children[2];
+        pzb.hidden = !r.pause;
+        setText(pzb, r.pause === 'resume' ? 'Resume' : 'Pause');
+        pzb.setAttribute('aria-label', (r.pause === 'resume' ? 'Resume job ' : 'Pause job ') + r.num);
+        pzb.disabled = !!r.busy;
         mv.hidden = !r.movable;
         mv.children[0].setAttribute('aria-label', 'Move job ' + r.num + ' up');
         mv.children[1].setAttribute('aria-label', 'Move job ' + r.num + ' down');
@@ -822,6 +874,26 @@ td.topic:empty,td.note:empty{display:none}
         b.setAttribute('aria-pressed', picked === c.id ? 'true' : 'false');
       } };
     }
+    /** Job 99: one state chip: its words, its count, and (on Active) the red badge with the number of jobs that need the operator. */
+    function stateChipSpec(g, count, on, needs, pick, pickBadge) {
+      return { key: 'state:' + g[0], make: function () {
+        var b = h('button', 'chip'); b.type = 'button';
+        var bd = h('span', 'badge'); bd.setAttribute('role', 'button'); bd.hidden = true;
+        bd.addEventListener('click', function (ev) { if (ev && ev.stopPropagation) ev.stopPropagation(); pickBadge(); });
+        b.append(h('span', 'lb'), h('span', 'n'), bd);
+        b.addEventListener('click', function () { pick(g[0]); });
+        return b;
+      }, update: function (b) {
+        var k = b.children;
+        setText(k[0], g[1]);
+        setText(k[1], String(count));
+        var showBadge = g[0] === 'active' && needs > 0;
+        k[2].hidden = !showBadge;
+        setText(k[2], showBadge ? String(needs) : '');
+        k[2].setAttribute('aria-label', needs + ' need the operator: show them');
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      } };
+    }
     function tabSpec(t, count, current, pick) {
       return { key: t[0], make: function () {
         var b = h('button', 'tab'); b.type = 'button'; b.setAttribute('role', 'tab');
@@ -833,7 +905,7 @@ td.topic:empty,td.note:empty{display:none}
         b.setAttribute('aria-selected', current === t[0] ? 'true' : 'false');
       } };
     }
-    return { h: h, sync: sync, drawCards: drawCards, rowSpec: rowSpec, chipSpec: chipSpec, tabSpec: tabSpec, mergeRowSpec: mergeRowSpec, setText: setText, cardSpec: cardSpec, mergeSpec: mergeSpec };
+    return { stateChipSpec: stateChipSpec, h: h, sync: sync, drawCards: drawCards, rowSpec: rowSpec, chipSpec: chipSpec, tabSpec: tabSpec, mergeRowSpec: mergeRowSpec, setText: setText, cardSpec: cardSpec, mergeSpec: mergeSpec };
   }
 
   if (typeof __crankExports === 'object' && __crankExports) {
@@ -856,12 +928,17 @@ td.topic:empty,td.note:empty{display:none}
       if (s0 && typeof s0.u === 'string' && /^https:\/\//.test(s0.u) && typeof s0.s === 'string' && s0.s) inbox = s0;
     } catch (e) { inbox = null; }
   }
-  var tab = 'list', chip = 'all', doneShown = DONE_STEP;
+  var tab = 'list', chip = 'all', doneShown = DONE_STEP, groupsOn = { todo: true, active: true, done: false, cancelled: false };
   try { var t0 = localStorage.getItem(TAB_KEY); if (TABS.some(function (x) { return x[0] === t0; })) tab = t0; } catch (e) { /* (the choice is just not remembered) */ }
   var data = null, model = null, gotGood = false, lastSent = null, lastFetchAt = 0, fastTimer = null, fastTicks = 0, starts = null, wasFresh = null, view = 'main', wasInSettings = false, shownRows = [], drag = null, mvSent = {}, toastTimer = null;
 
   function pickTab(t) { tab = t; chip = 'all'; doneShown = DONE_STEP; try { localStorage.setItem(TAB_KEY, t); } catch (e) { /* (not remembered) */ } draw(); }
   function pickChip(id) { chip = id; draw(); }
+  // job 99: the state chips (To do, Active, Done, Cancelled), any mix; the choice is kept in this browser only (the page works without it)
+  try { var g0 = JSON.parse(localStorage.getItem(GROUPS_KEY) || 'null'); if (g0 && typeof g0 === 'object') GROUPS.forEach(function (g) { if (typeof g0[g[0]] === 'boolean') groupsOn[g[0]] = g0[g[0]]; }); } catch (e) { /* (not remembered) */ }
+  function saveGroups() { try { localStorage.setItem(GROUPS_KEY, JSON.stringify(groupsOn)); } catch (e) { /* (not remembered) */ } }
+  function pickGroup(id) { groupsOn[id] = !groupsOn[id]; doneShown = DONE_STEP; saveGroups(); draw(); }
+  function showActive() { groupsOn.active = true; saveGroups(); draw(); }
 
   // job 26: the cog opens the project settings view (job 27 fills it) and a way back; the silhouette says the account comes later
   function showView() {
@@ -1042,7 +1119,15 @@ td.topic:empty,td.note:empty{display:none}
   var rowHooks = {
     down: function (tr, ev) { if (tr._row && tr._row.movable) gripDown('job', tr._row.num, ev); },
     step: function (tr, dir) { if (tr._row && tr._row.movable && canMove()) doMove(tr._row.num, stepPlan(shownRows, tr._row.num, dir)); },
+    pause: function (r) { if (canMove()) sendPause(r); },
   };
+  /** Job 99: Pause or Resume one job: the page's pause and unpause commands, sent like a move (job 20's pressed feedback; a refusal puts the row back and the toast says why). */
+  function sendPause(r) {
+    var key = 'p' + r.num;
+    if (mvSent[key] && pendingState(mvSent[key], data, Date.now()).phase === 'sending') return;
+    var pausing = r.pause === 'pause';
+    sendMove(key, pausing ? { type: 'pause', id: Number(r.num), why: 'paused from the status page' } : { type: 'unpause', id: Number(r.num) }, pausing ? 'Pausing…' : 'Resuming…');
+  }
   var chipHooks = { down: function (b, ev) { if (b._topic) gripDown('topic', b._topic, ev); } };
   /** Job 27: the settings of the project as the data says them, or null. */
   function settingsOf(d) { return d && d.settings && typeof d.settings === 'object' && Number.isInteger(d.settings.maxRunners) ? d.settings : null; }
@@ -1257,9 +1342,13 @@ td.topic:empty,td.note:empty{display:none}
     if (!chips.some(function (c) { return c.id === chip; })) chip = 'all';
     $('chips').hidden = !chips.length;
     D.sync($('chips'), chips.map(function (c) { return D.chipSpec(c, chip, pickChip, tab === 'list' && canMove() ? chipHooks : null); }));
-    var rows = (m.rows[tab] || []).filter(function (r) { return chip === 'all' || r.topicId === chip; });
+    // job 99: the state chips (list tab only), then the topic chip; Merged rows are cut to the first doneShown with "Show more"
+    var sc = $('statechips');
+    sc.hidden = tab !== 'list';
+    D.sync(sc, tab === 'list' ? GROUPS.map(function (g) { return D.stateChipSpec(g, m.states[g[0]], !!groupsOn[g[0]], m.states.needs, pickGroup, showActive); }) : []);
+    var rows = (m.rows[tab] || []).filter(function (r) { return (chip === 'all' || r.topicId === chip) && (tab !== 'list' || groupsOn[r.group]); });
     var total = rows.length;
-    if (tab === 'done') rows = rows.slice(0, doneShown);
+    if (tab === 'list') { var mergedSeen = 0; rows = rows.filter(function (r) { if (r.state !== 'merged') return true; mergedSeen += 1; return mergedSeen <= doneShown; }); }
     // job 18: the Merge history tab has its own table (topic, branch, started, run time, result, issue)
     var mwrap = $('mergewrap');
     var onMerges = tab === 'merges';
@@ -1293,7 +1382,7 @@ td.topic:empty,td.note:empty{display:none}
     }
     settleMoves(nowMs);
     var can = canMove() && tab === 'list';
-    rows.forEach(function (r) { r.movable = r.movable && can; r.moving = !!mvSent['j' + r.num] && pendingState(mvSent['j' + r.num], data, nowMs).phase === 'sending'; });
+    rows.forEach(function (r) { r.pause = can ? r.pause : ''; var pr = mvSent['p' + r.num]; r.busy = pr && pendingState(pr, data, nowMs).phase === 'sending' ? pr.sending : ''; r.movable = r.movable && can; r.moving = !!mvSent['j' + r.num] && pendingState(mvSent['j' + r.num], data, nowMs).phase === 'sending'; });
     shownRows = tab === 'list' ? rows : [];
     var tbody = wrap.children[0].children[1];
     var before = {};
@@ -1315,7 +1404,7 @@ td.topic:empty,td.note:empty{display:none}
     wrap.children[0].hidden = !rows.length;
     D.setText(wrap.children[1], rows.length ? '' : 'Nothing here.');
     wrap.children[1].hidden = !!rows.length;
-    wrap.children[2].hidden = !(tab === 'done' && total > rows.length);
+    wrap.children[2].hidden = !(tab === 'list' && total > rows.length);
     tick();
   }
   function tick() {
