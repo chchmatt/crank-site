@@ -112,7 +112,8 @@ footer .wrap{padding-top:36px;padding-bottom:48px;display:flex;flex-wrap:wrap;ga
 <h1>Prompts in.<br>Tested code merged.</h1>
 <p class="lede">Line up your jobs as prompts. Crank has Claude build each one on its own branch, runs your checks, merges what passes and moves on to the next, while you are away from the keyboard.</p>
 <div class="cta">
-<a class="btn big primary" href="mailto:hello@crankbuild.com?subject=Crank%20access">Request access</a>
+<!-- The main button label is written only here: change "Get started" to "Sign up" in this one place. -->
+<a class="btn big primary" href="mailto:hello@crankbuild.com?subject=Crank%20access">Get started</a>
 <a class="btn big" href="#how">See how it works</a>
 </div>
 </div>
@@ -120,9 +121,9 @@ footer .wrap{padding-top:36px;padding-bottom:48px;display:flex;flex-wrap:wrap;ga
 <div class="sample" role="img" aria-label="Sample of the status page: two runners building, one waiting, and the merge runner merging">
 <div class="sample-top"><b>Runners</b><span><span class="ok">&#9679;</span> Controller running</span></div>
 <div class="runners">
-<div class="runner"><div class="n">Parallel runner</div><div class="s">&#9654; Building</div><div class="j">312 Runner picks its topic</div><div class="bar-track"><div class="bar-fill" style="width:58%"></div></div></div>
-<div class="runner"><div class="n">Views runner</div><div class="s">&#9654; Building</div><div class="j">340 Share as a picture</div><div class="bar-track"><div class="bar-fill" style="width:20%"></div></div></div>
-<div class="runner wait"><div class="n">Games runner</div><div class="s">&#9684; Waiting for a runner</div><div class="j">301 Side-pot payouts</div></div>
+<div class="runner"><div class="n">Parallel runner</div><div class="s">&#9654; Building</div><div class="j">DP-312 Runner picks its topic</div><div class="bar-track"><div class="bar-fill" style="width:58%"></div></div></div>
+<div class="runner"><div class="n">Views runner</div><div class="s">&#9654; Building</div><div class="j">DP-340 Share as a picture</div><div class="bar-track"><div class="bar-fill" style="width:20%"></div></div></div>
+<div class="runner wait"><div class="n">Games runner</div><div class="s">&#9684; Waiting for a runner</div><div class="j">DP-301 Side-pot payouts</div></div>
 <div class="runner merge"><div class="n">Merge runner</div><div class="s">&#9654; Merging</div><div class="j">parallel into main</div><div class="bar-track"><div class="bar-fill" style="width:45%"></div></div></div>
 </div>
 <div class="sample-note">Sample. This is the page Crank keeps for each project.</div>
@@ -134,10 +135,10 @@ footer .wrap{padding-top:36px;padding-bottom:48px;display:flex;flex-wrap:wrap;ga
 <h2>How a job goes through</h2>
 <p class="intro">A job is a prompt in a queue. Nothing about it is hidden: every step leaves a branch, a report or a log you can read.</p>
 <ol class="steps">
-<li><div class="step-n">01 &middot; QUEUE</div><div class="step-t">Write the job</div><div class="step-d">A prompt with a topic, an order, and "after" for what must finish first. Jobs that need you are marked, so the runners skip them.</div></li>
+<li><div class="step-n">01 &middot; QUEUE</div><div class="step-t">Write the job</div><div class="step-d">A prompt with a topic, an order, and "after" for what must finish first. Jobs that need a person are marked, so the runners skip them.</div></li>
 <li><div class="step-n">02 &middot; BUILD</div><div class="step-t">A runner builds it</div><div class="step-d">Claude works on a branch of its own. Each topic has its own runner, so unrelated work goes ahead side by side.</div></li>
-<li><div class="step-n">03 &middot; CHECK</div><div class="step-t">Your checks decide</div><div class="step-d">Type check, lint and tests run before anything lands. Work that fails stays on its branch with a plain report of what went wrong.</div></li>
-<li><div class="step-n">04 &middot; MERGE</div><div class="step-t">Merged, then the next</div><div class="step-d">A merge runner lands passing work on main, one topic at a time, and the queue moves on.</div></li>
+<li><div class="step-n">03 &middot; CHECK</div><div class="step-t">Your checks decide</div><div class="step-d">Your own checks (type check, lint and tests, for example) run before anything lands. Work that fails stays on its branch with a plain report of what went wrong.</div></li>
+<li><div class="step-n">04 &middot; MERGE</div><div class="step-t">Merged, then the next</div><div class="step-d">A merge runner lands passing work on main, one merge at a time for each branch, and the queue moves on.</div></li>
 </ol>
 </div>
 </section>
@@ -148,9 +149,9 @@ footer .wrap{padding-top:36px;padding-bottom:48px;display:flex;flex-wrap:wrap;ga
 <div class="features">
 <div><div class="f-t"><span aria-hidden="true">&#9654;</span> Topics side by side</div><div class="f-d">Independent work runs in parallel. Work that depends on other work waits its turn.</div></div>
 <div><div class="f-t"><span aria-hidden="true">&#10003;</span> Nothing broken reaches main</div><div class="f-d">Only work that passes the checks is merged. A conflict becomes a fix job instead of a mess.</div></div>
-<div><div class="f-t"><span aria-hidden="true">&#10074;&#10074;</span> Stop, hold, resume</div><div class="f-d">Stop a run, hold the whole queue, or pause a topic. The running job always finishes cleanly first.</div></div>
+<div><div class="f-t"><span aria-hidden="true">&#10074;&#10074;</span> Hold, pause, end a task</div><div class="f-d">Hold the whole queue or pause a topic, and the running job finishes cleanly first. End a task and its unfinished work is kept on its branch.</div></div>
 <div><div class="f-t"><span aria-hidden="true">&#9632;</span> A status page for your phone</div><div class="f-d">See every runner, every job and what needs you, without opening the computer.</div></div>
-<div><div class="f-t"><span aria-hidden="true">&#9873;</span> It tells you when it needs you</div><div class="f-d">Everything that can go on without you does. What cannot waits, marked, with the reason.</div></div>
+<div><div class="f-t"><span aria-hidden="true">&#9873;</span> It tells you when it needs a person</div><div class="f-d">Everything that can go on without you does. What cannot waits, marked, with the reason, and Crank can alert your phone.</div></div>
 <div><div class="f-t"><span aria-hidden="true">&#9099;</span> On your own computer</div><div class="f-d">Runners run on your machine with your repository. The status page only reads progress.</div></div>
 </div>
 </div>
@@ -164,7 +165,7 @@ footer .wrap{padding-top:36px;padding-bottom:48px;display:flex;flex-wrap:wrap;ga
 </div>
 <div>
 <h2>What it needs today</h2>
-<p>Windows with PowerShell 7, Node 22 or later, git, and Claude Code. Not a hosted service: it runs where your code is.</p>
+<p>Everything is built on your own PC or server. You control it from crankbuild.com. It needs Windows (Mac is planned), git, Claude Code and Node 22 or later. Claude can walk you through setup.</p>
 </div>
 </div>
 </section>
