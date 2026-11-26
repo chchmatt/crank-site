@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Privacy | Crank</title><meta name="description" content="What Crank's website, status page, phone app and alerts do with information about you and your projects.">
+<link rel="icon" href="/favicon.ico"><style>*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}body{margin:0;background:#1c1b29;color:#f4efe2;font:16px/1.65 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;overflow-wrap:anywhere}
+a{color:#ff5a36}a:hover{color:#ff8a70}.wrap{max-width:760px;margin:0 auto;padding:20px 16px 56px}
+nav.top{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:center;padding:4px 0 16px;border-bottom:1px solid #3a3957;margin-bottom:24px}
+nav.top a{display:inline-flex;align-items:center;min-height:44px;text-decoration:none;font-weight:600}
+h1{font-size:2rem;line-height:1.2;margin:.4em 0 .5em}h2{font-size:1.35rem;line-height:1.3;margin:2em 0 .6em;padding-top:.4em;border-top:1px solid #3a3957}h3{font-size:1.1rem;margin:1.6em 0 .4em}
+p,ul,ol{margin:.7em 0}li{margin:.35em 0}ul ul,ol ul{margin:.3em 0}
+code{font-family:"JetBrains Mono",ui-monospace,Consolas,monospace;font-size:.88em;background:#25243a;border:1px solid #3a3957;border-radius:4px;padding:1px 5px}
+.table{overflow-x:auto;margin:1em 0}table{border-collapse:collapse;width:100%;background:#25243a}th,td{border:1px solid #3a3957;padding:8px 10px;text-align:left;vertical-align:top}th{color:#a9a5bf;font-weight:600}
+.lead{color:#a9a5bf}footer{margin-top:48px;padding-top:16px;border-top:1px solid #3a3957;color:#a9a5bf;font-size:.9rem}footer a{display:inline-flex;align-items:center;min-height:44px}</style></head>
+<body><div class="wrap"><nav class="top"><a href="/">Crank</a><a href="/help/">Help</a></nav>
+<main>
+<h1>Crank privacy policy</h1>
+<p class="lead">Takes effect 27 November 2026. Parts marked &ldquo;when sign-in is turned on&rdquo; describe account sign-in that is not yet switched on.</p>
+<h2>What this policy covers</h2>
+<p>Crank is a build queue that runs on your own computer. This page says what Crank's website, status page, phone app and alerts do with information about you and your projects.</p>
+<h2>Who runs Crank</h2>
+<p>Crank is run by Northern Arc Limited, New Zealand. Contact: <a href="mailto:hello@crankbuild.com">hello@crankbuild.com</a>.</p>
+<h2>What stays on your computer</h2>
+<p><strong>Everything about your computer stays on it.</strong> The computer's name, its folders and file paths, its operating system user, its IP address, its memory and usage figures, your Claude usage, and the logs of the controller and the runners are never sent to Crank's website, to the Crank API, to an alert or to any other service. Your code stays in your own repository. Runners never use the network to talk to Crank: they talk to their controller only through files on your computer.</p>
+<h2>What Crank's cloud holds for a project</h2>
+<p>The status page and the app read, and your controller writes, the state of the queue: job numbers, titles and text, states, topics, notes, comments, the plain reasons shown on the page, the time the controller was last heard from, your commands, the project's settings, and your repository's web address (never a local path or a user name in it). It is kept in Azure storage in Azure’s <code>westus2</code> region (US West 2). Only the Crank API at api.crankbuild.com touches that storage, and a status page link carries a secret part after the <code>#</code> that is sent in a request header, never in an address or a log.</p>
+<h2>When you sign in</h2>
+<p>You sign in with an emailed one-time code, or with Google or Microsoft, through Microsoft Entra External ID. There are no passwords. Crank keeps your <strong>email address</strong> and, if the sign-in provider gives it, your <strong>name</strong>. These personal details are stored encrypted with a key of your own. When you ask to be forgotten, that key is thrown away, so your details can never be read again; forgetting is complete within 7 days, when the last backup of the keys expires. You can ask for this with "Forget me" in your account once it is on <code>main</code>, and meanwhile by email to <a href="mailto:hello@crankbuild.com">hello@crankbuild.com</a>.</p>
+<h2>Phone alerts</h2>
+<p>Crank can alert your phone when something needs a person (for example "Job 4: Needs operator").</p>
+<ul>
+<li><strong>ntfy</strong> (<a href="https://ntfy.sh/docs/privacy/">ntfy.sh</a>). Alerts go to ntfy topics that are random names kept secret. ntfy carries the alert text (a job number and a few plain words) to the ntfy app on your phone. See ntfy's own privacy policy.</li>
+<li><strong>Expo's push service</strong> and <strong>Google's Firebase Cloud Messaging</strong> (for Android) carry alerts to the Crank phone app. The app gives Crank a push token for your phone, and the alert travels through Expo's push service and then Google's. Crank holds no phone number. See <a href="https://expo.dev/privacy">Expo's privacy policy</a> and <a href="https://firebase.google.com/support/privacy">Firebase's privacy information</a>.</li>
+</ul>
+<p>Alert text holds only job numbers, titles and short plain words: never a key, a code, a link with a secret, or anything about your computer.</p>
+<h2>The phone app</h2>
+<p>The Crank phone app shows your projects read only. It keeps the status page link in your phone's secure storage. It sends no analytics, no crash reports and no usage data. Its only network calls are the reads of your project's status data.</p>
+<h2>The website</h2>
+<p>crankbuild.com is hosted on GitHub Pages, so GitHub receives the ordinary request details (such as your IP address) when you open it, under GitHub's policy. The pages use fonts from Google Fonts, so Google receives the same ordinary details when the font loads. <strong>No advertising, no tracking and no analytics cookies:</strong> the home page has no cookies or analytics script (checked 26 November 2026; recheck at publishing). The contact button opens your own mail program; an email you send us is read by us and kept as email is.</p>
+<h2>What we never do</h2>
+<p>We do not sell your information, share it for advertising, or build a profile of you.</p>
+<h2>How long it is kept, and how to delete it</h2>
+<p>A project's data is kept while the project exists. To delete a project or your account, or to be forgotten, email <a href="mailto:hello@crankbuild.com">hello@crankbuild.com</a> (or use "Forget me" once it is on <code>main</code>). Details are removed from use at once and fully gone within 7 days, when the last backup expires.</p>
+<h2>Your rights and the laws that apply</h2>
+<p>We handle personal information under the New Zealand Privacy Act 2020, and, for people in the European Union and in California, the EU’s GDPR and California’s CCPA. You can ask us what we hold about you, ask us to correct it, or ask us to delete it, by email to <a href="mailto:hello@crankbuild.com">hello@crankbuild.com</a>.</p>
+<h2>Children</h2>
+<p>Crank is not meant for anyone under 16. We do not knowingly collect data from them, and we delete it if we find any.</p>
+<h2>Changes to this policy</h2>
+<p>When it changes, the new text is published here with its date. This version takes effect on 27 November 2026.</p>
+<h2>Contact</h2>
+<p><a href="mailto:hello@crankbuild.com">hello@crankbuild.com</a></p>
+</main>
+<footer><a href="/">crankbuild.com</a> &middot; <a href="/privacy.html">Privacy</a> &middot; <a href="/help/">Help</a></footer></div></body></html>
