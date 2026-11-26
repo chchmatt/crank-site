@@ -26,3 +26,9 @@
 
 ## Look at it locally
 Double-click `index.html`, or from the repo folder run `npx serve .` (or `node -e "require('http')..."`-style any static server) and open http://localhost:3000. Use browser dev tools device mode at 390 px for the phone view.
+
+## Job 210 (26 November 2026): Get started, and what it needs today
+- The main button now says "Get started" (was "Request access"). Its label is written in one place in `index.html` (a comment beside it says where); change it to "Sign up" there. It still opens the mail to hello@crankbuild.com.
+- "What it needs today" now leads with "Everything is built on your own PC or server. You control it from crankbuild.com." then Windows (Mac is planned), git, Claude Code and Node 22 or later (`engines` in Crank's `package.json` on `main`), and "Claude can walk you through setup." PowerShell is dropped: job 43 (runners start from Node) is on `main`.
+- Claims checked against `main`: "Jobs that need you" -> "need a person"; checks named as "your own checks (type check, lint and tests, for example)"; the merge runner lands work "one merge at a time for each branch" (was "one topic at a time"); "Stop, hold, resume" -> "Hold, pause, end a task" (End task keeps the unfinished work on its branch, so "finishes cleanly" is said only of hold and pause); "tells you when it needs you" -> "needs a person", with phone alerts. Other claims (topics in parallel, nothing broken reaches main, status page, own computer) match `main` and are unchanged.
+- Sample job numbers show the project prefix: DP-312, DP-340, DP-301.
