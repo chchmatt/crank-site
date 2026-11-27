@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex">
+<title>Your projects - Crank</title>
+<style>
+:root{--ground:#1c1b29;--surface:#25243a;--border:#3a3957;--text:#f4efe2;--muted:#a9a5bf;--accent:#ff5a36;--amber:#f5c05a;--green:#5fd39a;--chip:#2e2d46;--warm:#33211f;--gutter:16px}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+body{margin:0;background:var(--ground);color:var(--text);font-family:Inter,"Segoe UI",system-ui,-apple-system,Roboto,sans-serif;font-size:15px;line-height:1.4}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+button:disabled{cursor:not-allowed}
+[hidden]{display:none!important}
+.wrap{max-width:900px;margin:0 auto;padding:0 var(--gutter)}
+header{border-bottom:1px solid var(--border);padding:16px 0}
+header .wrap{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+header h1{margin:0;font-size:20px;font-weight:600;flex:1;min-width:140px}
+header a{color:var(--muted);text-decoration:none;font-size:14px}
+header a:hover{color:var(--accent)}
+main{padding:16px 0 48px}
+.btn{min-height:44px;min-width:44px;padding:0 16px;background:transparent;color:var(--text);border:1px solid var(--border);border-radius:10px;font-size:14px}
+.btn:hover,.btn:focus-visible{border-color:var(--accent)}
+.btn.main{background:var(--accent);border-color:var(--accent);color:#1c1b29;font-weight:600}
+.btn.danger{color:var(--amber)}
+.btn:disabled{color:var(--muted);border-style:dashed}
+.card{display:block;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin:0 0 12px}
+.card.needs{border-color:var(--amber);box-shadow:inset 3px 0 0 var(--amber)}
+.card h2{margin:0 0 4px;font-size:18px;font-weight:700;overflow-wrap:anywhere}
+.card h2 a{color:var(--text);text-decoration:none}
+.card h2 a:hover,.card h2 a:focus-visible{color:var(--accent);text-decoration:underline}
+.role{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:999px;background:var(--chip);color:var(--muted);font-size:12px;font-weight:400;vertical-align:middle}
+.counts{display:flex;gap:20px;flex-wrap:wrap;margin:8px 0 4px}
+.cnt b{display:block;font-size:22px;font-weight:600;color:var(--muted)}
+.cnt span{font-size:12px;color:var(--muted)}
+.cnt.on b{color:var(--accent)}
+.cnt.needs b{color:var(--amber);font-weight:800}
+.cnt.needs span{color:var(--amber);font-weight:700}
+.muted{color:var(--muted);font-size:13px}
+.alerts{margin-top:10px;border-top:1px solid var(--border);padding-top:8px}
+.alerts h3{margin:0 0 4px;font-size:14px;font-weight:600}
+.alerts label{display:flex;align-items:center;gap:10px;min-height:44px;font-size:14px}
+.alerts input{width:22px;height:22px;accent-color:var(--accent)}
+.acct{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin:0 0 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.acct .who{flex:1;min-width:180px;overflow-wrap:anywhere}
+#msg{min-height:20px;margin:8px 0;font-size:14px;color:var(--amber)}
+#msg:empty{display:none}
+.center{text-align:center;padding:48px 0}
+</style>
+</head>
+<body>
+<header><div class="wrap"><h1>Your projects</h1><a href="/">crankbuild.com</a></div></header>
+<main class="wrap">
+<div id="msg" role="status" aria-live="polite"></div>
+<section id="out" hidden><div class="center"><p id="outtext">Sign in to see your projects.</p><button type="button" class="btn main" id="signin">Sign in</button><p class="muted" id="nosignin" hidden>Sign-in isn't switched on yet.</p></div></section>
+<section id="in" hidden>
+<div class="acct" id="acct"><div class="who"><span class="muted">Signed in as</span> <span id="email"></span></div><button type="button" class="btn" id="signout">Sign out</button><button type="button" class="btn danger" id="forget">Forget me</button></div>
+<div id="projects"></div>
+<p class="muted" id="empty" hidden>You have no projects yet. Open a project's own link and choose Make this project yours.</p>
+</section>
+</main>
+<script src="/vendor/msal-browser.min.js"></script>
+<script>
+(function () {
+  'use strict';
+  var API = 'https://api.crankbuild.com', SIGNIN_TEXT = '{"authority":"https://crankbuild.ciamlogin.com/crankbuild.onmicrosoft.com","clientId":"3c327f1c-d6e8-48f0-824b-adbee2091b04","scope":"api://523c0344-ed52-4298-8804-c20f55e56941/access"}';
+  var CHECK_EVERY = 30000;
+  // the alert kinds a person may choose (the same list, in the same order, as api/src/alert-kinds.js: scripts/test-dashboard-page.js checks it)
+  var KINDS = [['needs-you', 'Needs operator'], ['built', 'Job built'], ['merged', 'Job merged'], ['failed', 'Job failed or blocked'], ['usage-limit', 'Usage limit hold'], ['merge-failed', 'Merge failed']];
+  var FORGET_ASK1 = 'Forget me? Crank will delete your email and the key that reads what you wrote, and take you out of every project. Your name will show as "Former user" in old records. This cannot be undone.';
+  var FORGET_ASK2 = 'Really forget me? There is no way back.';
+
+  // Sign-in for the website's pages (job 138). ONE small piece of browser code, used by the dashboard page and by the project page: scripts/status-page.js puts this file's text into
+// both pages (where the page file marks it), and the tests load it as a module. It is a thin layer over Microsoft's browser library (MSAL, `@azure/msal-browser`, which the site
+// serves as a file beside the page and which sets `window.msal`; job 140 puts the file there): authorization code with PKCE, tokens in SESSION storage only (never local storage,
+// never a cookie, never the page's address), and no token in any text the page shows or logs. Plain ES5 on purpose (it runs unchanged in the pages' own script).
+//   makeSignIn(env) with env = { msal, cfg: { authority, clientId, scope, redirectUri }, origin } gives:
+//     available()  true when the library is there and the settings are complete
+//     init()       a promise: starts the library, finishes a sign-in that was just redirected back, picks the signed-in account (if any)
+//     signedIn()   true after init when somebody is signed in
+//     signIn()     sends the browser to the tenant's sign-in (email code, Google, Microsoft: the tenant offers them)
+//     token()      a promise of a fresh access token for the API (asks the library quietly; sends the browser to sign in again if it must)
+//     signOut()    a promise: ends the session here and at the tenant
+function makeSignIn(env) {
+  var msal = env && env.msal, cfg = (env && env.cfg) || {}, app = null, account = null, scopes = [cfg.scope];
+  function available() {
+    return !!(msal && typeof msal.PublicClientApplication === 'function' && cfg && /^https:\/\/[A-Za-z0-9.\/_-]+$/.test(String(cfg.authority || '')) && /^[A-Za-z0-9-]{8,}$/.test(String(cfg.clientId || '')) && cfg.scope);
+  }
+  function host(a) { return String(a).replace(/^https:\/\//, '').split('/')[0]; }
+  function init() {
+    if (!available()) return Promise.resolve(false);
+    if (app) return Promise.resolve(!!account);
+    app = new msal.PublicClientApplication({
+      auth: { clientId: cfg.clientId, authority: cfg.authority, knownAuthorities: [host(cfg.authority)], redirectUri: cfg.redirectUri || (env.origin || '') + '/signed-in', postLogoutRedirectUri: (env.origin || '') + '/' },
+      cache: { cacheLocation: 'sessionStorage' }
+    });
+    return Promise.resolve(app.initialize ? app.initialize() : null)
+      .then(function () { return app.handleRedirectPromise(); })
+      .then(function (r) {
+        var all = app.getAllAccounts();
+        account = (r && r.account) || all[0] || null;
+        if (account && app.setActiveAccount) app.setActiveAccount(account);
+        return !!account;
+      });
+  }
+  function signedIn() { return !!account; }
+  function signIn() { return app ? app.loginRedirect({ scopes: scopes }) : Promise.resolve(); }
+  function token() {
+    if (!app || !account) return Promise.reject(new Error('not signed in'));
+    return app.acquireTokenSilent({ scopes: scopes, account: account }).then(function (r) { return r.accessToken; }, function (e) {
+      var code = e && e.errorCode ? String(e.errorCode) : '';
+      if (/interaction_required|login_required|consent_required|no_tokens_found|invalid_grant/.test(code)) { app.acquireTokenRedirect({ scopes: scopes, account: account }); }
+      throw new Error('sign-in needed');
+    });
+  }
+  function signOut() {
+    var a = account; account = null;
+    return app && a ? app.logoutRedirect({ account: a }) : Promise.resolve();
+  }
+  return { available: available, init: init, signedIn: signedIn, signIn: signIn, token: token, signOut: signOut };
+}
+if (typeof module === 'object' && module && module.exports) module.exports = { makeSignIn: makeSignIn };
+
+
+  /** "just now", "3 minutes ago": the same words as the app's dashboard. */
+  function heardText(at, nowMs) {
+    if (!at) return 'not heard yet';
+    var t = Date.parse(at);
+    if (!isFinite(t)) return 'not heard yet';
+    var sec = Math.max(0, Math.round((nowMs - t) / 1000));
+    if (sec < 45) return 'just now';
+    var min = Math.round(sec / 60);
+    if (min < 60) return min === 1 ? '1 minute ago' : min + ' minutes ago';
+    var hr = Math.round(min / 60);
+    if (hr < 48) return hr === 1 ? '1 hour ago' : hr + ' hours ago';
+    return Math.round(hr / 24) + ' days ago';
+  }
+  /** Projects that need the operator first, the rest in the order given. */
+  function sortProjects(list) {
+    return list.map(function (p, i) { return { p: p, i: i }; })
+      .sort(function (a, b) { return (b.p.needsOperator > 0 ? 1 : 0) - (a.p.needsOperator > 0 ? 1 : 0) || a.i - b.i; })
+      .map(function (x) { return x.p; });
+  }
+  function apiProblem(status) {
+    if (status === 401) return 'Your sign-in has ended. Sign in again.';
+    if (status === 403) return 'That is not allowed for your account.';
+    if (status === 429) return 'Crank is busy. Trying again soon.';
+    if (status === 0) return "Can't reach Crank, trying again.";
+    return 'Crank could not do that (status ' + status + ').';
+  }
+
+  if (typeof __crankExports === 'object' && __crankExports) {
+    __crankExports.heardText = heardText; __crankExports.sortProjects = sortProjects; __crankExports.KINDS = KINDS; __crankExports.apiProblem = apiProblem; __crankExports.makeSignIn = makeSignIn;
+    return;
+  }
+
+  // ---------- the page ----------
+  var $ = function (id) { return document.getElementById(id); };
+  function h(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
+  var cfg = null;
+  try { cfg = SIGNIN_TEXT ? JSON.parse(SIGNIN_TEXT) : null; } catch (e) { cfg = null; }
+  var signin = makeSignIn({ msal: typeof msal === 'undefined' ? null : msal, cfg: cfg, origin: (typeof location === 'object' && location.origin) || '' });
+  var rows = [], chosen = {}, timer = null;
+
+  function say(words) { $('msg').textContent = words || ''; }
+  function showOut(words) {
+    $('in').hidden = true; $('out').hidden = false;
+    $('nosignin').hidden = signin.available();
+    $('signin').hidden = !signin.available();
+    if (words) $('outtext').textContent = words;
+  }
+  /** One call to the API with the person's token in the Authorization header and nowhere else. Resolves { status, json }. */
+  function call(method, path, body, extra) {
+    return signin.token().then(function (tok) {
+      var hd = { Authorization: 'Bearer ' + tok };
+      if (extra) for (var k in extra) hd[k] = extra[k];
+      var o = { method: method, cache: 'no-store', headers: hd };
+      if (body !== undefined) { hd['Content-Type'] = 'application/json'; o.body = JSON.stringify(body); }
+      return fetch(API + path, o);
+    }).then(function (r) {
+      return (r.json ? r.json() : Promise.resolve({})).catch(function () { return {}; }).then(function (j) { return { status: r.status, ok: r.ok, json: j || {} }; });
+    }, function () { return { status: 401, ok: false, json: {} }; });
+  }
+  function failWords(r) { return apiProblem(r.status); }
+
+  function drawProject(p) {
+    var needs = p.needsOperator > 0;
+    var card = h('div', 'card' + (needs ? ' needs' : ''));
+    var title = h('h2');
+    var a = h('a', '', p.name || p.projectId);
+    a.setAttribute('href', '/project/' + encodeURIComponent(p.projectId) + '/#p=' + encodeURIComponent(p.projectId));
+    title.append(a, h('span', 'role', p.role || ''));
+    card.append(title);
+    var counts = h('div', 'counts');
+    [['Building', p.building, p.building > 0 ? 'on' : ''], ['Needs operator', p.needsOperator, needs ? 'needs' : ''], ['Queued', p.queued, '']].forEach(function (c) {
+      var d = h('div', 'cnt ' + c[2]); d.append(h('b', '', String(c[1] || 0)), h('span', '', c[0])); counts.append(d);
+    });
+    card.append(counts, h('div', 'muted', 'Last heard ' + heardText(p.lastHeard, Date.now())));
+    var box = h('div', 'alerts');
+    box.append(h('h3', '', 'Alerts'));
+    var inputs = {};
+    KINDS.forEach(function (k) {
+      var lab = h('label'); var inp = h('input'); inp.setAttribute('type', 'checkbox'); inp.checked = !!(chosen[p.projectId] && chosen[p.projectId].indexOf(k[0]) >= 0);
+      inp.setAttribute('aria-label', k[1] + ' alerts for ' + (p.name || p.projectId)); inputs[k[0]] = inp;
+      inp.addEventListener('change', function () { saveAlerts(p.projectId, inputs, k[0]); });
+      lab.append(inp, h('span', '', k[1])); box.append(lab);
+    });
+    box.append(h('div', 'muted', "Alerts go to the Crank app on each phone you're signed in on."));
+    card.append(box);
+    return card;
+  }
+  function draw() {
+    var box = $('projects');
+    box.textContent = '';
+    sortProjects(rows).forEach(function (p) { box.append(drawProject(p)); });
+    $('empty').hidden = rows.length > 0;
+  }
+  function saveAlerts(project, inputs, which) {
+    var kinds = KINDS.map(function (k) { return k[0]; }).filter(function (id) { return inputs[id].checked; });
+    var before = chosen[project] || [];
+    Object.keys(inputs).forEach(function (id) { inputs[id].disabled = true; });
+    call('PUT', '/v1/me/projects/' + encodeURIComponent(project) + '/alerts', { kinds: kinds }).then(function (r) {
+      Object.keys(inputs).forEach(function (id) { inputs[id].disabled = false; });
+      if (r.ok) { chosen[project] = kinds; say(''); return; }
+      inputs[which].checked = before.indexOf(which) >= 0; // (the switch goes back: the choice was not saved)
+      say(failWords(r));
+    });
+  }
+  function load() {
+    return call('GET', '/v1/me/projects').then(function (r) {
+      if (r.status === 401) { showOut(apiProblem(401)); return; }
+      if (!r.ok) { say(failWords(r)); return; }
+      var list = Array.isArray(r.json.projects) ? r.json.projects : [];
+      return Promise.all(list.map(function (p) {
+        if (chosen[p.projectId]) return null;
+        return call('GET', '/v1/me/projects/' + encodeURIComponent(p.projectId) + '/alerts').then(function (a) { chosen[p.projectId] = a.ok && Array.isArray(a.json.kinds) ? a.json.kinds : []; });
+      })).then(function () { rows = list; say(''); draw(); });
+    });
+  }
+  function start() {
+    $('out').hidden = true; $('in').hidden = false;
+    call('POST', '/v1/me', {}).then(function (r) {
+      if (!r.ok) { if (r.status === 401) { showOut(apiProblem(401)); return null; } say(failWords(r)); return null; }
+      return call('GET', '/v1/me');
+    }).then(function (r) {
+      if (!r) return null;
+      if (r.ok) $('email').textContent = String(r.json.email || '');
+      return load();
+    }).then(function () { if (!timer) timer = setInterval(function () { if (!document.hidden) load(); }, CHECK_EVERY); });
+  }
+  function forgetMe() {
+    if (typeof confirm !== 'function' || !confirm(FORGET_ASK1)) return;
+    if (!confirm(FORGET_ASK2)) return;
+    $('forget').disabled = true;
+    call('DELETE', '/v1/me', { confirm: 'forget me' }).then(function (r) {
+      $('forget').disabled = false;
+      if (r.ok) { rows = []; chosen = {}; signin.signOut(); showOut('You have been forgotten. Your email and the key to what you wrote are gone.'); return; }
+      say(r.status === 409 && r.json && r.json.reason ? 'Not yet: ' + r.json.reason + '.' : failWords(r));
+    });
+  }
+  $('signin').addEventListener('click', function () { signin.signIn(); });
+  $('signout').addEventListener('click', function () { rows = []; chosen = {}; signin.signOut(); });
+  $('forget').addEventListener('click', forgetMe);
+  signin.init().then(function (ok) { if (ok) start(); else showOut(); }, function () { showOut("Sign-in didn't finish. Try again."); });
+})();
+</script>
+</body>
+</html>

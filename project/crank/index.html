@@ -419,12 +419,13 @@ td{min-width:0}
 </div>
 <div id="lost" hidden style="padding:48px 16px;text-align:center;color:#a9a5bf">Page not found.</div>
 
+<script src="/vendor/msal-browser.min.js"></script>
 <script>
 (function () {
   'use strict';
   var STORE = 'https://crankbuildstore.blob.core.windows.net/build/'; // (the folder the data file is read from, put in when the page is made from the project's settings; '' when the project has none)
   var API = 'https://api.crankbuild.com', API_PROJECT = 'crank'; // (job 55: the Crank API's address and the project's id in it, put in when the page is made from the settings; '' for both and the page works as before)
-  var SIGNIN_TEXT = ''; // (job 138: the website's sign-in settings as JSON, put in when the page is made; '' and the page offers no sign-in)
+  var SIGNIN_TEXT = '{"authority":"https://crankbuild.ciamlogin.com/crankbuild.onmicrosoft.com","clientId":"3c327f1c-d6e8-48f0-824b-adbee2091b04","scope":"api://523c0344-ed52-4298-8804-c20f55e56941/access"}'; // (job 138: the website's sign-in settings as JSON, put in when the page is made; '' and the page offers no sign-in)
   // Sign-in for the website's pages (job 138). ONE small piece of browser code, used by the dashboard page and by the project page: scripts/status-page.js puts this file's text into
 // both pages (where the page file marks it), and the tests load it as a module. It is a thin layer over Microsoft's browser library (MSAL, `@azure/msal-browser`, which the site
 // serves as a file beside the page and which sets `window.msal`; job 140 puts the file there): authorization code with PKCE, tokens in SESSION storage only (never local storage,
@@ -446,7 +447,7 @@ function makeSignIn(env) {
     if (!available()) return Promise.resolve(false);
     if (app) return Promise.resolve(!!account);
     app = new msal.PublicClientApplication({
-      auth: { clientId: cfg.clientId, authority: cfg.authority, knownAuthorities: [host(cfg.authority)], redirectUri: cfg.redirectUri || (env.origin || '') + '/signed-in/', postLogoutRedirectUri: (env.origin || '') + '/' },
+      auth: { clientId: cfg.clientId, authority: cfg.authority, knownAuthorities: [host(cfg.authority)], redirectUri: cfg.redirectUri || (env.origin || '') + '/signed-in', postLogoutRedirectUri: (env.origin || '') + '/' },
       cache: { cacheLocation: 'sessionStorage' }
     });
     return Promise.resolve(app.initialize ? app.initialize() : null)
