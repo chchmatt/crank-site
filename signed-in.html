@@ -118,10 +118,16 @@ function makeSignIn(env) {
   }
   function signOut() {
     var a = account; account = null;
-    return app && a ? app.logoutRedirect({ account: a }) : Promise.resolve();
+    // (job 140) the id token is handed to the tenant as the hint of who is signing out, so it does not ask the person to pick an account (it asks when it is not told who)
+    var req = { account: a };
+    if (a && typeof a.idToken === 'string' && a.idToken) req.idTokenHint = a.idToken;
+    return app && a ? app.logoutRedirect(req) : Promise.resolve();
   }
   return { available: available, init: init, signedIn: signedIn, signIn: signIn, token: token, signOut: signOut };
 }
+// (job 140) the browser's Back button can bring back a page exactly as it was left (the browser keeps the page in memory): after signing out that would show a person's projects again.
+// A page that comes back from the browser's memory is loaded again, so it asks the sign-in layer who is signed in, and a signed-out person sees the signed-out page.
+if (typeof window === 'object' && window && typeof window.addEventListener === 'function') window.addEventListener('pageshow', function (e) { if (e && e.persisted) window.location.reload(); });
 if (typeof module === 'object' && module && module.exports) module.exports = { makeSignIn: makeSignIn };
 
 
@@ -262,7 +268,7 @@ if (typeof module === 'object' && module && module.exports) module.exports = { m
     });
   }
   $('signin').addEventListener('click', function () { signin.signIn(); });
-  $('signout').addEventListener('click', function () { rows = []; chosen = {}; signin.signOut(); });
+  $('signout').addEventListener('click', function () { rows = []; chosen = {}; $('email').textContent = ''; showOut('You have signed out.'); signin.signOut(); });
   $('forget').addEventListener('click', forgetMe);
   signin.init().then(function (ok) { if (ok) start(); else showOut(); }, function () { showOut("Sign-in didn't finish. Try again."); });
 })();
