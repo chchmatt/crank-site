@@ -87,6 +87,15 @@ footer .wrap{padding-top:36px;padding-bottom:48px;display:flex;flex-wrap:wrap;ga
 .foot-q{font-weight:600;font-size:18px}
 .foot-mail{color:var(--accent);font-size:18px;text-decoration:none;font-weight:600;display:inline-block;padding:8px 0;min-height:44px}
 .social{display:flex;gap:10px;flex-wrap:wrap}
+#account{display:inline-flex;align-items:center;min-height:44px;min-width:44px;justify-content:flex-end}
+.acct{position:relative}
+.avatar{width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text);font:600 17px Inter,system-ui,sans-serif;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.avatar:hover{border-color:var(--muted)}
+.avatar:focus-visible,.acct-menu a:focus-visible,.acct-menu button:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+.acct-menu{position:absolute;right:0;top:50px;z-index:10;min-width:170px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:6px;display:flex;flex-direction:column;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.acct-menu[hidden]{display:none}
+.acct-menu a,.acct-menu button{display:flex;align-items:center;min-height:44px;padding:0 12px;border:0;border-radius:8px;background:none;color:var(--text);font:500 15px Inter,system-ui,sans-serif;text-align:left;text-decoration:none;cursor:pointer;width:100%}
+.acct-menu a:hover,.acct-menu button:hover{background:var(--border)}
 @media (max-width:560px){.navlink{display:none}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important;animation:none!important}}
 </style>
@@ -101,6 +110,7 @@ footer .wrap{padding-top:36px;padding-bottom:48px;display:flex;flex-wrap:wrap;ga
 <a class="navlink" href="#how">How it works</a>
 <a class="navlink" href="#features">Features</a>
 <a class="btn" href="mailto:hello@crankbuild.com">Contact</a>
+<span id="account"></span>
 </nav>
 </div>
 </header>
@@ -184,5 +194,6 @@ footer .wrap{padding-top:36px;padding-bottom:48px;display:flex;flex-wrap:wrap;ga
 </div>
 </footer>
 
+<script src="/site-auth.js" defer></script>
 </body>
 </html>
